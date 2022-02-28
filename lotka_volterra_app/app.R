@@ -4,12 +4,21 @@ library(tidyverse)
 
 ui<-fluidPage(
   fluidRow(
-    column(3,numericInput("pop","N",value=50,min=1,max=1000)),
-    column(6,sliderInput("per_capita","r",value=0,min=-1,max=1,step=0.1)),
-    column(3,numericInput("time","t",value=10,min=2,max=500))),
+    column(6,
+      "Population 1",
+      numericInput("pop1","N",value=50,min=1,max=1000,width="50%"),
+      numericInput("time1","t",value=10,min=2,max=500,width="50%"),
+      sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.1)
+  ),
+    column(6,
+      "Population 2",
+      numericInput("pop2","N",value=50,min=1,max=1000,width="50%"),
+      numericInput("time2","t",value=10,min=2,max=500,width="50%"),
+      sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.1)
+  )),
   fluidRow(
     column(12,plotOutput("population_growth"))
-  )
+  ),
 )
 
 #exponential population growth function
@@ -32,14 +41,24 @@ exp_pop_growth<-function(No,r,t){
   popDF
 }
 
+#concatenate population function
+pop_c<-function(pop1,pop2){
+  pop1 %>% 
+    bind_rows(pop2) %>%
+    add_column(pop=c(rep("pop1",nrow(pop1)),rep("pop2",nrow(pop2)))) -> pops
+}
+
 server<-function(input,output,session){
-  pop_data<-reactive(exp_pop_growth(No=input$pop,r=input$per_capita,t=input$time))
-  
+  pop_data1<-reactive(exp_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1))
+  pop_data2<-reactive(exp_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2))
+
   output$population_growth<-renderPlot({
-    pop_data() %>%
-      ggplot(aes(t,N)) +
-      geom_line(color="blue") +
-      theme_bw()
+    pop_c(pop_data1(),pop_data2()) %>%
+      ggplot() +
+      geom_line(aes(t,N,color=pop)) +
+      theme_bw() +
+      labs(x="time (t)",y="population size (N)",color="Population")
+      
   },res=96)
 }
 shinyApp(ui,server)

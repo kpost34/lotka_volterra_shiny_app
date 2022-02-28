@@ -51,4 +51,5 @@ exp_pop_growth<-function(No,r,t){
   popDF
 }
 
+#graph N vs. t
 exp_pop_growth(100,.3,50) %>% ggplot(aes(t,N)) + geom_line()
