@@ -4,33 +4,40 @@ library(tidyverse)
 #Create user interface
 ui<-fluidPage(
   fluidRow(
-    column(6,
+    column(4,
       "Population 1",
       numericInput("pop1","N",value=50,min=1,max=1000,width="50%"),
       numericInput("time1","t",value=10,min=2,max=500,width="50%"),
       sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.1)
   ),
-    column(6,
+    column(4,
+           br(),
+           actionButton("exp_button","Show exponential growth")),
+    column(4,
       "Population 2",
       numericInput("pop2","N",value=50,min=1,max=1000,width="50%"),
       numericInput("time2","t",value=10,min=2,max=500,width="50%"),
       sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.1)
   )),
   fluidRow(
-    column(6,
-           numericInput("carry1","K",value=100,min=1,max=1000,width="50%")
-    ),
-    column(6,
+    column(4,
+           numericInput("carry1","K",value=100,min=1,max=1000,width="50%")),
+    column(4,
+           br(),
+           br(),
+           actionButton("log_button","Show logistic growth")),
+           #actionButton("log_growth_display","Show logistic growth")),
+    column(4,
            numericInput("carry2","K",value=100,min=1,max=1000,width="50%"))
   ),
   fluidRow(
     column(12,
-      "Exponential Growth",
+      TextOutput("exp_title"),
       plotOutput("exp_growth"))
   ),
   fluidRow(
     column(12,
-      "Logistic Growth",
+      TextOutput("log_title"),
       plotOutput("log_growth"))
   )
 )
@@ -86,7 +93,7 @@ pop_c<-function(pop1,pop2){
 }
 
 
-#Create server
+#Create server function
 server<-function(input,output,session){
   #generate exponential pop growth data
   exp_data1<-reactive(exp_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1))
@@ -95,26 +102,41 @@ server<-function(input,output,session){
   #generate logistic pop growth data
   log_data1<-reactive(log_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1,K=input$carry1))
   log_data2<-reactive(log_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2,K=input$carry2))
+  
+  #print exponential growth title
+  observeEvent(input$exp_button,{
+    output$exp_title<-renderText("Exponential Growth")
+  })
 
   #produce exponential growth plot
-  output$exp_growth<-renderPlot({
+  observeEvent(input$exp_button,{
+    output$exp_growth<-renderPlot({
     pop_c(exp_data1(),exp_data2()) %>%
       ggplot() +
-      geom_line(aes(t,N,color=pop)) +
-      theme_bw() +
-      labs(x="time (t)",y="population size (N)",color="Population")
-  },res=96)
+        geom_line(aes(t,N,color=pop)) +
+        theme_bw() +
+        labs(x="time (t)",y="population size (N)",color="Population")
+  },res=96) 
+  })
+  
+  #print logistic growth title
+  observeEvent(input$log_button,{
+    output$log_title<-renderText("Logistic Growth")
+  })
 
   #produce logistic growth plot
+  observeEvent(input$log_button,{
   output$log_growth<-renderPlot({
     pop_c(log_data1(),log_data2()) %>%
       ggplot() +
-      geom_line(aes(t,N,color=pop)) +
-      theme_bw() +
-      labs(x="time (t)",y="population size (N)",color="Population")
+        geom_line(aes(t,N,color=pop)) +
+        theme_bw() +
+        labs(x="time (t)",y="population size (N)",color="Population")
+  },res=96) 
   })
-  
 }
 shinyApp(ui,server)
 
-
+#future changes
+#1) dynamic UI so that K boxes and perhaps pop2 inputs and graphs change on buttons
+#2) enhanced UI to provide background info in a tab
