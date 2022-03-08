@@ -3,44 +3,40 @@ library(tidyverse)
 
 #Create user interface
 ui<-fluidPage(
-  fluidRow(
-    column(4,
-      "Population 1",
-      numericInput("pop1","N",value=50,min=1,max=1000,width="50%"),
-      numericInput("time1","t",value=10,min=2,max=500,width="50%"),
-      sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.1)
-  ),
-    column(4,
-           br(),
-           actionButton("exp_button","Show exponential growth")),
-    column(4,
-      "Population 2",
-      numericInput("pop2","N",value=50,min=1,max=1000,width="50%"),
-      numericInput("time2","t",value=10,min=2,max=500,width="50%"),
-      sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.1)
-  )),
-  fluidRow(
-    column(4,
-           numericInput("carry1","K",value=100,min=1,max=1000,width="50%")),
-    column(4,
-           br(),
-           br(),
-           actionButton("log_button","Show logistic growth")),
-           #actionButton("log_growth_display","Show logistic growth")),
-    column(4,
-           numericInput("carry2","K",value=100,min=1,max=1000,width="50%"))
-  ),
-  fluidRow(
-    column(12,
-      TextOutput("exp_title"),
-      plotOutput("exp_growth"))
-  ),
-  fluidRow(
-    column(12,
-      TextOutput("log_title"),
-      plotOutput("log_growth"))
+  titlePanel("Exponential and Logistic Growth App"),
+  sidebarLayout(
+    sidebarPanel(
+          "Population 1",
+          br(),
+          numericInput("pop1","N",value=50,min=1,max=1000,width="50%"),
+          numericInput("time1","t",value=10,min=2,max=500,width="50%"),
+          sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.1),
+          numericInput("carry1","K",value=100,min=1,max=1000,width="50%"),
+          br(),
+          br(),
+          "Population 2",
+          br(),
+          numericInput("pop2","N",value=50,min=1,max=1000,width="50%"),
+          numericInput("time2","t",value=10,min=2,max=500,width="50%"),
+          sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.1),
+          numericInput("carry2","K",value=100,min=1,max=1000,width="50%"),
+          br(),
+          br(),
+          actionButton("exp_button","Show exponential growth"),
+          actionButton("log_button","Show logistic growth"),
+      width=4),
+    mainPanel(
+      textOutput("exp_title"),
+      plotOutput("exp_growth"),
+      br(),
+      br(),
+      textOutput("log_title"),
+      plotOutput("log_growth")),
+    position="left")
   )
-)
+  #tabPanel("Information",
+               #textOutput("app_info"),
+               #width=5),
 
 #Create functions
 #exponential population growth function
