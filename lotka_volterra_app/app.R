@@ -1,42 +1,52 @@
 library(shiny)
 library(tidyverse)
+library(bslib)
 
 #Create user interface
 ui<-fluidPage(
+  theme=bslib::bs_theme(bootswatch="flatly"),
   titlePanel("Exponential and Logistic Growth App"),
   sidebarLayout(
     sidebarPanel(
-          "Population 1",
-          br(),
+          h5("Population 1"),
           numericInput("pop1","N",value=50,min=1,max=1000,width="50%"),
           numericInput("time1","t",value=10,min=2,max=500,width="50%"),
           sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.1),
           numericInput("carry1","K",value=100,min=1,max=1000,width="50%"),
-          br(),
-          br(),
-          "Population 2",
-          br(),
+            br(),
+            br(),
+          h5("Population 2"),
           numericInput("pop2","N",value=50,min=1,max=1000,width="50%"),
           numericInput("time2","t",value=10,min=2,max=500,width="50%"),
           sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.1),
           numericInput("carry2","K",value=100,min=1,max=1000,width="50%"),
-          br(),
-          br(),
+            br(),
+            br(),
           actionButton("exp_button","Show exponential growth"),
           actionButton("log_button","Show logistic growth"),
       width=4),
     mainPanel(
-      textOutput("exp_title"),
-      plotOutput("exp_growth"),
-      br(),
-      br(),
-      textOutput("log_title"),
-      plotOutput("log_growth")),
+      tabsetPanel(
+        id="tabset",
+        tabPanel("Plots",
+            br(),
+          htmlOutput("exp_title"),
+          plotOutput("exp_growth"),
+            br(),
+            br(),
+          htmlOutput("log_title"),
+          plotOutput("log_growth")),
+        tabPanel("Information",
+            br(),
+          p("This app was developed to illustrate the differences between exponential and logistic population growth",
+            "and the impact of parameter (i.e., N, r, t, K) changes on their respective growth curves. The equations", 
+            "to calculate growth rates are as follows:"),
+          p(strong("Exponential growth"),": dN/dt = rN"),
+            br(),
+          p(strong("Logistic growth"),": dN/dt = r((K - N)/K) * N"))),
     position="left")
   )
-  #tabPanel("Information",
-               #textOutput("app_info"),
-               #width=5),
+)
 
 #Create functions
 #exponential population growth function
@@ -91,6 +101,8 @@ pop_c<-function(pop1,pop2){
 
 #Create server function
 server<-function(input,output,session){
+  #thematic::thematic_shiny()
+  
   #generate exponential pop growth data
   exp_data1<-reactive(exp_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1))
   exp_data2<-reactive(exp_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2))
@@ -101,7 +113,7 @@ server<-function(input,output,session){
   
   #print exponential growth title
   observeEvent(input$exp_button,{
-    output$exp_title<-renderText("Exponential Growth")
+    output$exp_title<-renderText(paste("<b>Exponential Growth</b>"))
   })
 
   #produce exponential growth plot
@@ -110,14 +122,16 @@ server<-function(input,output,session){
     pop_c(exp_data1(),exp_data2()) %>%
       ggplot() +
         geom_line(aes(t,N,color=pop)) +
+        scale_color_manual(values=c("darkred","darkblue")) +
         theme_bw() +
+        theme(axis.text=element_text(size=11)) +
         labs(x="time (t)",y="population size (N)",color="Population")
   },res=96) 
   })
   
   #print logistic growth title
   observeEvent(input$log_button,{
-    output$log_title<-renderText("Logistic Growth")
+    output$log_title<-renderText(paste("<b>Logistic Growth</b>"))
   })
 
   #produce logistic growth plot
@@ -126,7 +140,9 @@ server<-function(input,output,session){
     pop_c(log_data1(),log_data2()) %>%
       ggplot() +
         geom_line(aes(t,N,color=pop)) +
+        scale_color_manual(values=c("darkred","darkblue")) +
         theme_bw() +
+        theme(axis.text=element_text(size=11)) +
         labs(x="time (t)",y="population size (N)",color="Population")
   },res=96) 
   })
