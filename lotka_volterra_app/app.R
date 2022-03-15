@@ -73,40 +73,54 @@ ui<-navbarPage(
   ),
   tabPanel("Competition",
     titlePanel("Lotka-Volterra Competition Model"),
-    splitLayout(cellWidths=c("75%","25%"),
-      column(9,
-      plotOutput("comp_plot"),
-      wellPanel(
-        #column(4.5,
-          h5("Population 1"),
-          numericInput("pop1_comp","N",value=50,min=1,max=1000),
-          numericInput("time1_comp","t",value=20,min=2,max=500),
-          sliderInput("r1_comp","r",value=0,min=-1,max=1,step=0.05)
+    fluidRow(
+      column(4.5,
+        plotOutput("comp_plot")),
+      column(4.5,
+        plotOutput("comp_iso_plot")
         ),
-        #column(4.5,
-          #h5("Population 1"),
-          #numericInput("pop2_comp","N",value=50,min=1,max=1000),
-          #numericInput("time2_comp","t",value=20,min=2,max=500),
-          #sliderInput("r2_comp","r",value=0,min=-1,max=1,step=0.05)
-        )
+      column(3,
+        tableOutput("coord_comp")
       )
+    ),
+    wellPanel(
+    fluidRow(
+      column(4,
+        h5(strong("Population 1"))
       ),
-      tabsetPanel("comp_tabs",
-        tabPanel("Click",
-          tableOutput("coord_comp")
-        ),
-        tabPanel("Background",
-          "INSERT BACKGROUND INFO"
-        )
+      column(4,
+        h5()
       ),
-  tabPanel("Predator-Prey",
-    titlePanel("Lotka-Volterra Predator-Prey Model")
-  ),
-  tabPanel("For more information",
-           "INSERT name, github info, etc. here")
+      column(4,
+        h5(strong("Population 2"))
+      )
+    ),
+    fluidRow(
+      column(4,
+        numericInput("N1_comp","N",value=50,min=1,max=1000,width="50%"),
+        sliderInput("r1_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
+        numericInput("K1_comp","K",value=100,min=1,max=1000,width="50%")
+      ),
+      column(4,
+        numericInput("t_comp","t",value=20,min=2,max=200,width="50%"),
+        sliderInput("alpha21_comp","alpha21",value=0,min=-1,max=1,step=0.1,width="50%"),
+        sliderInput("alpha12_comp","alpha12",value=0,min=-1,max=1,step=0.1,width="50%")
+      ),
+      column(4,
+        numericInput("N2_comp","N",value=50,min=1,max=1000,width="50%"),
+        sliderInput("r2_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
+        numericInput("K2_comp","K",value=100,min=1,max=1000,width="50%")
+      )
     )
   )
+  )
 )
+  
+  
+  
+    #tabPanel("Background on Competition Models")
+
+
 
   
 
@@ -163,6 +177,7 @@ pop_c<-function(pop1,pop2){
 
 #Create server function
 server<-function(input,output,session){
+
   #PAGE 1: Population Growth Models
   #Produce reactive functions of data
   #generate exponential pop growth data
@@ -249,7 +264,7 @@ server<-function(input,output,session){
   })
   
   #hide click output when in information tab
-  observe(if(input$tabs=="Information"){
+  observe(if(input$growth_tabs=="Information"){
     hide("coord_exp")
     hide("coord_log")}
     else{
