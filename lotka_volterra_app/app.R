@@ -5,68 +5,105 @@ library(tidyverse)
 
 
 #Create user interface
-ui<-fluidPage(
+ui<-navbarPage(
   useShinyjs(),
   theme=bslib::bs_theme(bootswatch="flatly"),
-  titlePanel("Exponential and Logistic Growth App"),
-  fluidRow(
-    column(3,
-      wellPanel(
-        h5("Population 1"),
-        numericInput("pop1","N",value=50,min=1,max=1000,width="75%"),
-        numericInput("time1","t",value=20,min=2,max=500,width="75%"),
-        sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.05,width="75%"),
-        numericInput("carry1","K",value=100,min=1,max=1000,width="75%"),
-          br(),
-        h5("Population 2"),
-        numericInput("pop2","N",value=50,min=1,max=1000,width="75%"),
-        numericInput("time2","t",value=20,min=2,max=500,width="75%"),
-        sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.05,width="75%"),
-        numericInput("carry2","K",value=100,min=1,max=1000,width="75%"),
-          br(),
-          br(),
-        actionButton("exp_button","Exponential growth"),
-        actionButton("log_button","Logistic growth")
-      )
-    ),
-    column(width=6,
-      tabsetPanel(
-        id="tabset",
-        tabPanel("Plots",
+  tabPanel("Population Growth",
+    titlePanel("Exponential and Logistic Population Growth Models"),
+    fluidRow(
+      column(3,
+        wellPanel(
+          h5("Population 1"),
+          numericInput("pop1","N",value=50,min=1,max=1000,width="75%"),
+          numericInput("time1","t",value=20,min=2,max=500,width="75%"),
+          sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.05,width="75%"),
+          numericInput("carry1","K",value=100,min=1,max=1000,width="75%"),
+            br(),
+          h5("Population 2"),
+          numericInput("pop2","N",value=50,min=1,max=1000,width="75%"),
+          numericInput("time2","t",value=20,min=2,max=500,width="75%"),
+          sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.05,width="75%"),
+          numericInput("carry2","K",value=100,min=1,max=1000,width="75%"),
+            br(),
+            br(),
+          actionButton("exp_button","Exponential growth"),
+          actionButton("log_button","Logistic growth")
+        )
+      ),
+      column(width=6,
+        tabsetPanel(
+          id="growth_tabs",
+          tabPanel("Plots",
+                br(),
+              fluidRow(style="height:400px",
+                htmlOutput("exp_title"),
+                plotOutput("exp_growth",click="plot_click_exp")
+              ),
+              fluidRow(style="height:400px",
+                htmlOutput("log_title"),
+                plotOutput("log_growth",click="plot_click_log")
+              ),
+          ), 
+          tabPanel("Information",
               br(),
-            fluidRow(style="height:400px",
-              htmlOutput("exp_title"),
-              plotOutput("exp_growth",click="plot_click_exp")
-            ),
-            fluidRow(style="height:400px",
-              htmlOutput("log_title"),
-              plotOutput("log_growth",click="plot_click_log")
-            ),
-        ), 
-        tabPanel("Information",
-            br(),
-          h3("Background"),
-          p("This app was developed to illustrate the differences between exponential and logistic population growth",
-            "and the impact of parameter (i.e., N, r, t, K) changes on their respective growth curves. The equations", 
-            "to calculate growth rates are as follows:"),
-          p(strong("Exponential growth"),": dN/dt = rN"),
-          p(strong("Logistic growth"),": dN/dt = r((K - N)/K) * N"),
-            br(),
-          h3("Instructions"),
-          p("Click the \"Plots\" tab, input your N, t, and r values for each population, and select the type(s) of growth", 
-            "curve(s) to display. Set K for logistic growth. Feel free to adjust the parameters as you see fit, and the",
-            "graphs will be re-drawn automatically. Click the curves to display N and dN/dt values at each t.")
+            h3("Background"),
+            p("This app was developed to illustrate the differences between exponential and logistic population growth",
+              "and the impact of parameter (i.e., N, r, t, K) changes on their respective growth curves. The equations", 
+              "to calculate growth rates are as follows:"),
+            p(strong("Exponential growth"),": dN/dt = rN"),
+            p(strong("Logistic growth"),": dN/dt = r((K - N)/K) * N"),
+              br(),
+            h3("Instructions"),
+            p("Click the \"Plots\" tab. Input your N, t, and r values for each population, and select the type(s) of growth", 
+              "curve(s) to display. Set K for logistic growth. Graphs will be re-drawn as you adjust the parameters. Click",
+              "the curves to display N and dN/dt values at each t.")
+          )
+        )
+      ),
+      column(3, align="right",
+        fluidRow(style="height:95px"),
+        fluidRow(style="height:400px",
+          tableOutput("coord_exp")
+        ),
+        fluidRow(style="height:400px",
+          tableOutput("coord_log")
         )
       )
-    ),
-    column(3, align="right",
-      fluidRow(style="height:95px"),
-      fluidRow(style="height:400px",
-        tableOutput("coord_exp")
-      ),
-      fluidRow(style="height:400px",
-        tableOutput("coord_log")
+    )
+  ),
+  tabPanel("Competition",
+    titlePanel("Lotka-Volterra Competition Model"),
+    splitLayout(cellWidths=c("75%","25%"),
+      column(9,
+      plotOutput("comp_plot"),
+      wellPanel(
+        #column(4.5,
+          h5("Population 1"),
+          numericInput("pop1_comp","N",value=50,min=1,max=1000),
+          numericInput("time1_comp","t",value=20,min=2,max=500),
+          sliderInput("r1_comp","r",value=0,min=-1,max=1,step=0.05)
+        ),
+        #column(4.5,
+          #h5("Population 1"),
+          #numericInput("pop2_comp","N",value=50,min=1,max=1000),
+          #numericInput("time2_comp","t",value=20,min=2,max=500),
+          #sliderInput("r2_comp","r",value=0,min=-1,max=1,step=0.05)
+        )
       )
+      ),
+      tabsetPanel("comp_tabs",
+        tabPanel("Click",
+          tableOutput("coord_comp")
+        ),
+        tabPanel("Background",
+          "INSERT BACKGROUND INFO"
+        )
+      ),
+  tabPanel("Predator-Prey",
+    titlePanel("Lotka-Volterra Predator-Prey Model")
+  ),
+  tabPanel("For more information",
+           "INSERT name, github info, etc. here")
     )
   )
 )
@@ -126,6 +163,7 @@ pop_c<-function(pop1,pop2){
 
 #Create server function
 server<-function(input,output,session){
+  #PAGE 1: Population Growth Models
   #Produce reactive functions of data
   #generate exponential pop growth data
   exp_data1<-reactive(exp_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1))
@@ -166,7 +204,7 @@ server<-function(input,output,session){
   #print exponential plot click output on hits only
   output$coord_exp<-renderTable({
     req(input$plot_click_exp)
-    coord_exp_dat<-nearPoints(pop_c(exp_data1(),exp_data2()),input$plot_click_exp,xvar="t",yvar="N",threshold=10)
+    coord_exp_dat<-nearPoints(pop_c(exp_data1(),exp_data2()),input$plot_click_exp,threshold=10)
     if(nrow(coord_exp_dat)==0) 
       return()
     coord_exp_dat
@@ -204,15 +242,41 @@ server<-function(input,output,session){
   #print logistic plot click output on hits only
   output$coord_log<-renderTable({
     req(input$plot_click_log)
-    coord_log_dat<-nearPoints(pop_c(log_data1(),log_data2()),input$plot_click_log,xvar="t",yvar="N",threshold=10)
+    coord_log_dat<-nearPoints(pop_c(log_data1(),log_data2()),input$plot_click_log,threshold=10)
     if(nrow(coord_log_dat)==0) 
       return()
     coord_log_dat
   })
+  
+  #hide click output when in information tab
+  observe(if(input$tabs=="Information"){
+    hide("coord_exp")
+    hide("coord_log")}
+    else{
+      show("coord_exp")
+      show("coord_log")
+    }
+  )
+  
+  
+  
+  #PAGE 2: Competition Model
+  
+  
+  
+  #PAGE 3: Predator-prey Model
+  
+  
   
 }
 shinyApp(ui,server)
 
 #future changes
 #1) dynamic UI so that K boxes and perhaps pop2 inputs and graphs change on buttons
-#2) only display at least one row of info for successful click (otherwise nothing...or a message)
+#2) user feedback around super high values--perhaps throws an error/warning message
+#3) signifing() the N and dN/dt values
+#4) add some style/formatting to information panel
+#5) put K line on the graph
+#6) put pics in comp or pred-prey tabs
+#7) animated plot
+
