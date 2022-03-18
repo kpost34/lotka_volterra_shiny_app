@@ -57,7 +57,7 @@ iso1 %>%
 
 ## Create functions
 # Create competition dataframe
-comp_mod<-function(No1,r1,alpha12,K1,No2,r2,alpha21,K2,t){
+comp_mod<-function(No1,r1,alpha21,K1,No2,r2,alpha12,K2,t){
   #create empty tibble
   compDF<-matrix(NA,nrow=t+1,ncol=5)
   colnames(compDF)<-c("t","N1","dN1dt","N2","dN2dt")
@@ -81,7 +81,7 @@ comp_mod<-function(No1,r1,alpha12,K1,No2,r2,alpha21,K2,t){
 }
 
 # Create isocline dataframe
-isocliner<-function(K1,alpha12,K2,alpha21){
+isocliner<-function(K1,alpha21,K2,alpha12){
   #determine zero-growth isoclines
   iso1<-tibble(N1=c(0,K1),
                N2=c(K1/alpha12,0),

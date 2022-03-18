@@ -2,9 +2,11 @@ library(shiny)
 library(shinyjs)
 library(bslib)
 library(tidyverse)
+library(gganimate)
+library(gifski)
 
 
-#Create user interface
+### Create user interface
 ui<-navbarPage(
   useShinyjs(),
   theme=bslib::bs_theme(bootswatch="flatly"),
@@ -72,59 +74,84 @@ ui<-navbarPage(
     )
   ),
   tabPanel("Competition",
-    titlePanel("Lotka-Volterra Competition Model"),
-    fluidRow(
-      column(4.5,
-        plotOutput("comp_plot")),
-      column(4.5,
-        plotOutput("comp_iso_plot")
+    tabsetPanel(id="comp_tabs",
+      tabPanel("Simulation",         
+        titlePanel("Lotka-Volterra Competition Model"),
+        fluidRow(
+          column(4.5,
+            plotOutput("comp_time_plot")),
+          column(4.5,
+            plotOutput("comp_iso_plot")
+            ),
+          column(3,
+            tableOutput("coord_comp")
+          )
         ),
-      column(3,
-        tableOutput("coord_comp")
-      )
-    ),
-    wellPanel(
-    fluidRow(
-      column(4,
-        h5(strong("Population 1"))
+        wellPanel(
+          fluidRow(
+            column(4,
+              h5(strong("Population 1"))
+            ),
+            column(4,
+              actionButton("comp_button","Run model"),
+            ),
+            column(4,
+              h5(strong("Population 2"))
+            )
+          ),
+          fluidRow(
+            column(4,
+              numericInput("N1_comp","N",value=50,min=1,max=1000,width="50%"),
+              sliderInput("r1_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
+              numericInput("K1_comp","K",value=100,min=1,max=1000,width="50%")
+            ),
+            column(4,
+              numericInput("t_comp","t",value=20,min=2,max=200,width="50%"),
+              sliderInput("alpha21_comp","alpha21",value=0,min=-1,max=1,step=0.1,width="50%"),
+              sliderInput("alpha12_comp","alpha12",value=0,min=-1,max=1,step=0.1,width="50%")
+            ),
+            column(4,
+              numericInput("N2_comp","N",value=50,min=1,max=1000,width="50%"),
+              sliderInput("r2_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
+              numericInput("K2_comp","K",value=100,min=1,max=1000,width="50%")
+            )
+          )
+        )
       ),
-      column(4,
-        h5()
+      tabPanel("Background")
+    )
+  ),
+  tabPanel("Predation",
+    titlePanel("Lotka-Volterra Predator-Prey Model"),
+    sidebarLayout(
+      mainPanel(
+        tabsetPanel(
+          id="pred_tabs",
+          tabPanel("Plots",
+            htmlOutput("pred_title"),
+            plotOutput("pred_time_plot",click="plot_click_pred1"),
+            plotOutput("pred_phase_plot",click="plot_click_pred2")
+          ),
+          tabPanel("More on phase-space plots"),
+          tabPanel("Theory and math")
+        )
       ),
-      column(4,
-        h5(strong("Population 2"))
-      )
-    ),
-    fluidRow(
-      column(4,
-        numericInput("N1_comp","N",value=50,min=1,max=1000,width="50%"),
-        sliderInput("r1_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
-        numericInput("K1_comp","K",value=100,min=1,max=1000,width="50%")
-      ),
-      column(4,
-        numericInput("t_comp","t",value=20,min=2,max=200,width="50%"),
-        sliderInput("alpha21_comp","alpha21",value=0,min=-1,max=1,step=0.1,width="50%"),
-        sliderInput("alpha12_comp","alpha12",value=0,min=-1,max=1,step=0.1,width="50%")
-      ),
-      column(4,
-        numericInput("N2_comp","N",value=50,min=1,max=1000,width="50%"),
-        sliderInput("r2_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
-        numericInput("K2_comp","K",value=100,min=1,max=1000,width="50%")
+      sidebarPanel(
+        numericInput("pred_x","x",value=50,min=0,max=1000),
+        sliderInput("pred_alpha","alpha",value=0,min=-1,max=1,step=0.05),
+        sliderInput("pred_beta","beta",value=0,min=0,max=1,step=0.05),
+        numericInput("pred_y","y",value=50,min=0,max=1000),
+        sliderInput("pred_delta","delta",value=0,min=-1,max=1,step=0.05),
+        sliderInput("pred_gamma","gamma",value=0,min=0,max=1,step=0.05)
       )
     )
   )
-  )
 )
-  
-  
-  
-    #tabPanel("Background on Competition Models")
-
-
 
   
 
-#Create functions
+### Create functions
+## Population growth functions
 #exponential population growth function
 exp_pop_growth<-function(No,r,t){
   #create empty tibble
@@ -175,10 +202,55 @@ pop_c<-function(pop1,pop2){
 }
 
 
-#Create server function
+
+## Competition model functions
+#competition model function
+comp_mod<-function(No1,r1,alpha21,K1,No2,r2,alpha12,K2,t){
+  #create empty tibble
+  compDF<-matrix(NA,nrow=t+1,ncol=5)
+  colnames(compDF)<-c("t","N1","dN1dt","N2","dN2dt")
+  compDF<-as_tibble(compDF)
+  
+  #populate first row and t values
+  compDF$t<-0:t
+  compDF$N1[1]<-No1
+  compDF$dN1dt[1]<-(r1*No1)*(1-((No1+(alpha12*No2))/K1))
+  compDF$N2[1]<-No2
+  compDF$dN2dt[1]<-(r2*No2)*(1-((No2+(alpha21*No1))/K2))
+  
+  #populate cells in systematic fashion
+  for(i in 2:(t+1)){
+    compDF$N1[i]<-compDF$N1[i-1] + compDF$dN1dt[i-1]
+    compDF$N2[i]<-compDF$N2[i-1] + compDF$dN2dt[i-1]
+    compDF$dN1dt[i]<-(r1*compDF$N1[i])*(1-((compDF$N1[i]+(alpha12*compDF$N2[i]))/K1))
+    compDF$dN2dt[i]<-(r2*compDF$N2[i])*(1-((compDF$N2[i]+(alpha21*compDF$N1[i]))/K2))
+  }
+  compDF
+}
+
+# isocline dataframe function
+isocliner<-function(K1,alpha21,K2,alpha12){
+  #determine zero-growth isoclines
+  iso1<-tibble(N1=c(0,K1),
+               N2=c(K1/alpha12,0),
+               text=c("K1/alpha12","K1"),
+               isocline=rep("species1",2))
+  iso2<-tibble(N1=c(0,K2/alpha21),
+               N2=c(K2,0),
+               text=c("K2","K2/alpha21"),
+               isocline=rep("species2",2))
+  #combine iso objects into DF
+  iso1 %>%
+    bind_rows(iso2)-> isoDF
+  isoDF
+}
+
+
+
+### Create server function
 server<-function(input,output,session){
 
-  #PAGE 1: Population Growth Models
+  ## PAGE 1: Population Growth Models
   #Produce reactive functions of data
   #generate exponential pop growth data
   exp_data1<-reactive(exp_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1))
@@ -274,11 +346,84 @@ server<-function(input,output,session){
   )
   
   
+  ## PAGE 2: Competition Models
+  # Produce reactive functions of data
+  #generate competition model and isocline dataframes
+  comp_data<-reactive({
+    comp_mod(No1=input$N1_comp,r1=input$r1_comp,alpha21=input$alpha21_comp,K1=input$K1_comp,
+            No2=input$N2_comp,r2=input$r2_comp,alpha12=input$alpha12_comp,K2=input$K2_comp,
+            t=input$t_comp)
+    })
+  comp_iso_data<-reactive({
+    isocliner(K1=input$K1_comp,alpha21=input$alpha21_comp,K2=input$K2_comp,alpha12=input$alpha12_comp)
+    })
+
+  # Start with plots hidden
+  hide("comp_time_plot")
+  hide("comp_iso_plot")
+
+  # Toggle print competition model plots
+  observeEvent(input$comp_button,{
+    toggle("comp_time_plot")
+    toggle("comp_iso_plot")
+  })
   
-  #PAGE 2: Competition Model
+  # Produce competition model plots
+  #N vs t for both species
+  output$comp_time_plot<-renderImage({
+    outfile1<-tempfile(fileext=".gif")
+    
+    comp_data() %>%
+      ggplot() +
+        geom_line(aes(t,N1),color="red") +
+        geom_line(aes(t,N2),color="blue") +
+        scale_x_continuous(expand=c(0,0)) +
+        labs(y="N") +
+        theme_bw() +
+        transition_reveal(t) -> c_plot1
+    
+      anim_save("outfile1.gif",animate(c_plot1,renderer = gifski_renderer(loop=FALSE)))
+      
+      list(src = "outfile1.gif",
+           contentType = 'image/gif'
+           # width = 400,
+           # height = 300,
+           # alt = "This is alternate text"
+      )}, deleteFile = TRUE)
+
   
-  
-  
+  #N1 vs N2 
+  output$comp_iso_plot<-renderImage({
+    outfile2<-tempfile(fileext=".gif")
+    
+    comp_iso_data() %>%
+      ggplot(aes(N1,N2,color=isocline)) +
+        geom_line() +
+        geom_point() +
+        geom_text(aes(label=text),color="black",hjust="inward",vjust="inward") +
+        annotate(geom="text",x=Inf,y=Inf,hjust="right",vjust="top",fontface=2,
+                 label=case_when(
+                   (input$K1_comp/input$alpha12_comp > input$K2_comp) & (input$K1_comp > input$K2_comp/input$alpha21_comp) ~ "Species 1 wins",
+                   (input$K2_comp > input$K1_comp/input$alpha12_comp) & (input$K2_comp/input$alpha21_comp > input$K1_comp) ~ "Species 2 wins",
+                   (input$K2_comp > input$K1_comp/input$alpha12_comp) & (input$K1_comp > input$K2_comp/input$alpha21_comp) ~ "Unstable equilibrium",
+                   (input$K1_comp/input$alpha12_comp > input$K2_comp) & (input$K2_comp/input$alpha21_comp > input$K1_comp) ~ "Stable equilibrium: coexistence"),
+        ) +
+        geom_point(data=comp_data(),aes(N1,N2),color="darkgreen") +
+        transition_time(comp_data()$t) +
+        shadow_mark(past=TRUE,future=FALSE,alpha=0.3) +
+        theme(legend.position="bottom") +
+        theme_bw() -> c_plot2
+    
+    anim_save("outfile2.gif",animate(c_plot2,renderer = gifski_renderer(loop=FALSE)))
+    
+    list(src = "outfile2.gif",
+         contentType = 'image/gif'
+         # width = 400,
+         # height = 300,
+         # alt = "This is alternate text"
+    )}, deleteFile = TRUE)
+
+
   #PAGE 3: Predator-prey Model
   
   
@@ -287,11 +432,17 @@ server<-function(input,output,session){
 shinyApp(ui,server)
 
 #future changes
+#Population growth
 #1) dynamic UI so that K boxes and perhaps pop2 inputs and graphs change on buttons
-#2) user feedback around super high values--perhaps throws an error/warning message
-#3) signifing() the N and dN/dt values
-#4) add some style/formatting to information panel
-#5) put K line on the graph
-#6) put pics in comp or pred-prey tabs
-#7) animated plot
+#2) signifing() the N and dN/dt values
+#3) put K line on the graph
+
+#Competition
+#1) put pics in comp info tab
+#2) animated plot
+#3) option to have animated/static plot(s)
+
+#Both
+#1) user feedback around super high values--perhaps throws an error/warning message
+#2) add some style/formatting to information panel
 
