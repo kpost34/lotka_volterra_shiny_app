@@ -1,5 +1,6 @@
 library(tidyverse)
 library(deSolve)
+library(ggrepel)
 
 ### Predator-prey Model-------------------
 ## Create a vector of parameters
@@ -130,9 +131,10 @@ yo<-7
 inits<-c(x=xo,y=yo)
 
 #build DF of 'graduated' initial population sizes
-stateDF<-tibble(x=seq(0.5,1.5,.25)*(gamma/delta),
-                y=seq(0.5,1.5,.25)*(alpha/beta),
-                text=c("0.5x","0.75x","1x","1.25x","1.25x"))
+pop_mods<-c(0.5,0.75,1,1.25,1.5)
+stateDF<-tibble(x=pop_mods*(gamma/delta),
+                y=pop_mods*(alpha/beta),
+                text=c("0.5x","0.75x","1x","1.25x","1.5x"))
 
 
 ## Develop population DFs
@@ -156,7 +158,7 @@ apply(stateDF[,1:2],1,
       function(x) as_tibble(ode(x %>% as.numeric() %>% setNames(c("x","y")),
                                 times,LVpred,params))) -> predList 
 
-Map(cbind,predDF1,text=stateDF[[3]]) %>%
+Map(cbind,predList,text=stateDF[[3]]) %>%
   do.call("rbind",.) -> predDF
                                             
 
@@ -166,28 +168,31 @@ ode(inits,times,LVpred,params) %>%
 
 
 ## Build plot phases and add plot of initial population sizes
+#create label dataframe
+predDF %>%
+  group_by(text) %>%
+  summarize(x_eq=gamma/delta,
+            y_max=max(y))-> pop_mods_labels
+
+#develop phase plot
 ggplot(data=predDF) +
   theme_bw() +
-  geom_path(aes(x,y,group=text),color="gray80") +
-  geom_text(aes(max(x),max(y),group=text,label=text)) +
   geom_hline(yintercept=alpha/beta,linetype=2,color="black") +
-  geom_vline(xintercept=gamma/delta,linetype=2,color="black") 
-
-
-geom_path(data=predDFl[[1]],aes(x,y),color="gray50") +
-  geom_text(data=predDFl[[1]],aes(x,y),label="test") +
-  geom_path(data=predDFl[[2]],aes(x,y),color="gray50") +
-  geom_path(data=predDFl[[4]],aes(x,y),color="gray50") +
-  geom_path(data=predDFl[[5]],aes(x,y),color="gray50") +
-  geom_path(data=user_predDF,aes(x,y),color="red") +
+  geom_vline(xintercept=gamma/delta,linetype=2,color="black") +
+  geom_path(data=. %>% filter(text!="1x"),aes(x,y,group=text),color="gray50") +
+  geom_point(data=. %>% filter(text=="1x"),aes(x,y),size=3) +
+  geom_label_repel(data=pop_mods_labels,aes(x_eq,y_max,label=text)) +
+  geom_path(data=user_predDF,aes(x,y),color="steelblue") +
   xlim(0,pmax(2.5*(gamma/delta),2.5*xo)) +
   ylim(0,pmax(2.5*(alpha/beta),2.5*yo))
-
-
+  
+  
 ## Plot x and y vs time
 ggplot(data=user_predDF) +
-  geom_line(aes(time,x),color="red") +
-  geom_line(aes(time,y),color="blue") +
-  theme_bw()
+  geom_line(aes(time,x,color="Prey")) +
+  geom_line(aes(time,y,color="Predator")) +
+  scale_color_manual(name="",values=c("Prey"="blue","Predator"="red")) +
+  theme_bw() +
+  labs(y="Population size")
   
   
