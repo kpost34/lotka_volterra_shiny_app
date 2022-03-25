@@ -4,6 +4,8 @@ library(bslib)
 library(tidyverse)
 library(gganimate)
 library(gifski)
+library(deSolve)
+library(ggrepel)
 
 
 ### Create user interface
@@ -138,11 +140,13 @@ ui<-navbarPage(
       ),
       sidebarPanel(
         numericInput("pred_x","x",value=50,min=0,max=1000),
-        sliderInput("pred_alpha","alpha",value=0,min=-1,max=1,step=0.05),
+        sliderInput("pred_alpha","alpha",value=0,min=0,max=1,step=0.05),
         sliderInput("pred_beta","beta",value=0,min=0,max=1,step=0.05),
         numericInput("pred_y","y",value=50,min=0,max=1000),
-        sliderInput("pred_delta","delta",value=0,min=-1,max=1,step=0.05),
-        sliderInput("pred_gamma","gamma",value=0,min=0,max=1,step=0.05)
+        sliderInput("pred_delta","delta",value=0,min=0,max=1,step=0.05),
+        sliderInput("pred_gamma","gamma",value=0,min=0,max=1,step=0.05),
+        numericInput("pred_t","t",value=10,min=2,max=50),
+        actionButton("pred_button","Run model")
       )
     )
   )
@@ -245,7 +249,18 @@ isocliner<-function(K1,alpha21,K2,alpha12){
   isoDF
 }
 
-
+## Predator-prey Model Functions
+# model equations for ode()
+LVpred<-function(t,state,parameters){
+  with(as.list(c(state,parameters)),{
+    #rate of change equations
+    dxdt<-(alpha*x)-(beta*x*y)
+    dydt<-(delta*x*y)-(gamma*y)
+    
+    #returns rate of change
+    list(c(dxdt,dydt))
+  })
+}
 
 ### Create server function
 server<-function(input,output,session){
@@ -424,10 +439,85 @@ server<-function(input,output,session){
     )}, deleteFile = TRUE)
 
 
-  #PAGE 3: Predator-prey Model
+  ## PAGE 3: Predator-prey Model
+  # Produce reactive functions of data
+  #population modifier vector
+  pop_mods<-c(0.5,0.75,1,1.25,1.5)
   
+  #create params vector
+  params<-reactive({
+    c(alpha=input$pred_alpha,beta=input$pred_beta,delta=input$pred_delta,gamma=input$pred_gamma)
+  })
   
+  #pop_mods * population equilibrium to produce stateDF
+  stateDF<-reactive({
+    tibble(x=pop_mods*(input$pred_gamma/input$pred_delta),
+           y=pop_mods*(input$alpha/input$beta),
+           text=paste0(pop_mods,"x"))
+  })
   
+  #generate initial population size vector
+  inits<-reactive({
+    c(input$pred_x,input$pred_y)
+    })
+  
+  # Specify time
+  times<-reactive({seq(0,input$pred_t,by=0.1)})
+  
+  # Start with plots hidden
+  hide("pred_time_plot")
+  hide("pred_phase_plot")
+
+  # Toggle print predator-prey plots
+  observeEvent(input$pred_button,{
+    toggle("pred_time_plot")
+    toggle("pred_phase_plot")
+  })
+  
+  # Iterate LVpred() over various population modifiers
+  predList<-reactive({
+    apply(stateDF()[,1:2],1,
+          function(x) as_tibble(ode(x %>% as.numeric() %>% setNames(c("x","y")),
+                                    times,LVpred,params)))
+  })
+  
+  predDF<-reactive({
+    Map(cbind,predList(),text=stateDF()[[3]]) %>%
+      do.call("rbind",.) 
+  })
+  
+  # Run function on initial population sizes
+  user_predDF<-reactive({
+    ode(inits(),times(),LVpred,params()) %>%
+      as_tibble()
+  })
+  
+  # Build plot phases and add plot of initial population sizes
+  #create label dataframe
+  predDF() %>%
+    group_by(text) %>%
+    summarize(x_eq=gamma/delta,
+              y_max=max(y))-> pop_mods_labels
+  
+  #develop phase plot
+  ggplot(data=predDF()) +
+    theme_bw() +
+    geom_hline(yintercept=alpha/beta,linetype=2,color="black") +
+    geom_vline(xintercept=gamma/delta,linetype=2,color="black") +
+    geom_path(data=. %>% filter(text!="1x"),aes(x,y,group=text),color="gray50") +
+    geom_point(data=. %>% filter(text=="1x"),aes(x,y),size=3) +
+    geom_label_repel(data=pop_mods_labels,aes(x_eq,y_max,label=text)) +
+    geom_path(data=user_predDF,aes(x,y),color="steelblue") +
+    xlim(0,pmax(2.5*(gamma/delta),2.5*xo)) +
+    ylim(0,pmax(2.5*(alpha/beta),2.5*yo))
+  
+  #develop pops vs. time plot
+  ggplot(data=user_predDF()) +
+    geom_line(aes(time,x,color="Prey")) +
+    geom_line(aes(time,y,color="Predator")) +
+    scale_color_manual(name="",values=c("Prey"="blue","Predator"="red")) +
+    theme_bw() +
+    labs(y="Population size")
 }
 shinyApp(ui,server)
 
