@@ -131,10 +131,9 @@ ui<-navbarPage(
           id="pred_tabs",
           tabPanel("Plots",
             htmlOutput("pred_title"),
-            plotOutput("pred_time_plot",click="plot_click_pred1"),
-            plotOutput("pred_phase_plot",click="plot_click_pred2")
+            plotOutput("pred_time_plot"),
+            plotOutput("pred_phase_plot")
           ),
-          tabPanel("More on phase-space plots"),
           tabPanel("Theory and math")
         )
       ),
@@ -142,10 +141,10 @@ ui<-navbarPage(
         numericInput("pred_x","x",value=50,min=0,max=1000),
         sliderInput("pred_alpha","alpha",value=0,min=0,max=1,step=0.05),
         sliderInput("pred_beta","beta",value=0,min=0,max=1,step=0.05),
-        numericInput("pred_y","y",value=50,min=0,max=1000),
+        numericInput("pred_y","y",value=10,min=0,max=1000),
         sliderInput("pred_delta","delta",value=0,min=0,max=1,step=0.05),
         sliderInput("pred_gamma","gamma",value=0,min=0,max=1,step=0.05),
-        numericInput("pred_t","t",value=10,min=2,max=50),
+        numericInput("pred_t","t",value=100,min=2,max=200),
         actionButton("pred_button","Run model")
       )
     )
@@ -249,6 +248,7 @@ isocliner<-function(K1,alpha21,K2,alpha12){
   isoDF
 }
 
+
 ## Predator-prey Model Functions
 # model equations for ode()
 LVpred<-function(t,state,parameters){
@@ -260,6 +260,40 @@ LVpred<-function(t,state,parameters){
     #returns rate of change
     list(c(dxdt,dydt))
   })
+}
+
+
+#build stateDF & iterate ode() over varied initial population sizes
+predDF_builder<-function(alpha,beta,delta,gamma,t,func){
+  #deSolve needed for ode()
+  require(deSolve)
+  #start with a pop_modifier vector
+  mods<-c(0.5,1,1.5,2,3,4)
+  #create stateDF using parameters
+  tibble(prey=mods*(gamma/delta),
+         pred=mods*(alpha/beta),
+         text=paste0(mods,"x"))->stateDF
+  #created times vector from t
+  seq(0,t,by=.1)->times
+  #turn parameters into vector
+  pars<-c(alpha=alpha,beta=beta,delta=delta,gamma=gamma)
+  #iterate ode() over each combination of pop sizes and append multiplier as text in third col
+  apply(stateDF[,1:2],1,
+        function(x) as_tibble(ode(x %>% as.numeric() %>% setNames(c("x","y")),
+                                  times,func,pars))) %>%
+    Map(cbind,.,text=stateDF[[3]]) %>%
+    do.call("rbind",.) 
+}
+
+
+#output x & y from user-defined initial pop values
+user_predDF_builder<-function(xo,yo,alpha,beta,delta,gamma,t,func){
+  require(deSolve)
+  inits<-c(x=xo,y=yo)
+  pars<-c(alpha=alpha,beta=beta,delta=delta,gamma=gamma)
+  times<-seq(0,t,by=0.1)
+  ode(inits,times,LVpred,pars) %>%
+    as_tibble() 
 }
 
 ### Create server function
@@ -439,93 +473,80 @@ server<-function(input,output,session){
     )}, deleteFile = TRUE)
 
 
-  ## PAGE 3: Predator-prey Model
-  # Produce reactive functions of data
-  #population modifier vector
-  pop_mods<-c(0.5,0.75,1,1.25,1.5)
-  
-  #create params vector
-  params<-reactive({
-    c(alpha=input$pred_alpha,beta=input$pred_beta,delta=input$pred_delta,gamma=input$pred_gamma)
+  ### PAGE 3: Predator-prey Model
+  ## Produce reactive functions of data
+  user_predDF<-reactive({
+    user_predDF_builder(xo=input$pred_x,yo=input$pred_y,alpha=input$pred_alpha,beta=input$pred_beta,delta=input$pred_delta,
+                        gamma=input$pred_gamma,t=input$pred_t,func=LVpred)
+  })
+  predDF<-reactive({
+    predDF_builder(alpha=input$pred_alpha,beta=input$pred_beta,delta=input$pred_delta,gamma=input$pred_gamma,t=input$pred_t,func=LVpred)
   })
   
-  #pop_mods * population equilibrium to produce stateDF
-  stateDF<-reactive({
-    tibble(x=pop_mods*(input$pred_gamma/input$pred_delta),
-           y=pop_mods*(input$alpha/input$beta),
-           text=paste0(pop_mods,"x"))
-  })
-  
-  #generate initial population size vector
-  inits<-reactive({
-    c(input$pred_x,input$pred_y)
-    })
-  
-  # Specify time
-  times<-reactive({seq(0,input$pred_t,by=0.1)})
-  
-  # Start with plots hidden
+  ## Start with plots hidden
+  hide("pred_title")
   hide("pred_time_plot")
   hide("pred_phase_plot")
 
-  # Toggle print predator-prey plots
+  ## Toggle print predator-prey plots
   observeEvent(input$pred_button,{
+    toggle("pred_title")
     toggle("pred_time_plot")
     toggle("pred_phase_plot")
   })
   
-  # Iterate LVpred() over various population modifiers
-  predList<-reactive({
-    apply(stateDF()[,1:2],1,
-          function(x) as_tibble(ode(x %>% as.numeric() %>% setNames(c("x","y")),
-                                    times,LVpred,params)))
-  })
+  #print predator-prey plot title
+  output$pred_title<-renderText(paste("<b>Population Size Over Time</b>"))
   
-  predDF<-reactive({
-    Map(cbind,predList(),text=stateDF()[[3]]) %>%
-      do.call("rbind",.) 
-  })
+  ## Develop two plots
+  # Build pops vs. time plot
+  output$pred_time_plot <- renderPlot({
+    ggplot(data=user_predDF()) +
+      geom_line(aes(x=time,y=x,color="Prey")) +
+      geom_line(aes(x=time,y=y,color="Predator")) +
+      scale_color_manual(name="",values=c("Prey"="blue","Predator"="red")) +
+      theme_bw() +
+      labs(y="Population size")
+    },res=96) 
   
-  # Run function on initial population sizes
-  user_predDF<-reactive({
-    ode(inits(),times(),LVpred,params()) %>%
-      as_tibble()
-  })
   
-  # Build plot phases and add plot of initial population sizes
+  # Build phase plot
   #create label dataframe
-  predDF() %>%
-    group_by(text) %>%
-    summarize(x_eq=gamma/delta,
-              y_max=max(y))-> pop_mods_labels
+  pop_mods_labs<-reactive({
+    predDF() %>%
+      group_by(text) %>%
+      summarize(x_eq=input$pred_gamma/input$pred_delta,y_max=max(y))
+  })
   
   #develop phase plot
-  ggplot(data=predDF()) +
-    theme_bw() +
-    geom_hline(yintercept=alpha/beta,linetype=2,color="black") +
-    geom_vline(xintercept=gamma/delta,linetype=2,color="black") +
-    geom_path(data=. %>% filter(text!="1x"),aes(x,y,group=text),color="gray50") +
-    geom_point(data=. %>% filter(text=="1x"),aes(x,y),size=3) +
-    geom_label_repel(data=pop_mods_labels,aes(x_eq,y_max,label=text)) +
-    geom_path(data=user_predDF,aes(x,y),color="steelblue") +
-    xlim(0,pmax(2.5*(gamma/delta),2.5*xo)) +
-    ylim(0,pmax(2.5*(alpha/beta),2.5*yo))
-  
-  #develop pops vs. time plot
-  ggplot(data=user_predDF()) +
-    geom_line(aes(time,x,color="Prey")) +
-    geom_line(aes(time,y,color="Predator")) +
-    scale_color_manual(name="",values=c("Prey"="blue","Predator"="red")) +
-    theme_bw() +
-    labs(y="Population size")
+  output$pred_phase_plot <- renderPlot({
+    ggplot(data=predDF()) +
+      theme_bw() +
+      geom_hline(yintercept=input$pred_alpha/input$pred_beta,linetype=2,color="black") +
+      geom_vline(xintercept=input$pred_gamma/input$pred_delta,linetype=2,color="black") +
+      geom_path(data=predDF() %>% filter(text!="1x"),aes(x,y,group=text),color="gray50") +
+      geom_point(data=predDF() %>% filter(text=="1x"),aes(x,y),size=3) +
+      geom_label_repel(data=pop_mods_labs(),aes(x_eq,y_max,label=text)) +
+      geom_path(data=user_predDF(),aes(x,y),color="steelblue") 
+    },res=96) 
 }
 shinyApp(ui,server)
 
+#What to try next?
+#1) move legend of pop size over time to top/bottom
+#2) create and position legend for phase diagram
+#3) create title for phase diagram
+#4) remove toggle feature for pred plots??
+#5) rename axis labels for phase diagram
+
+
 #future changes
 #Population growth
+#0) add another tab that briefly explains rest of app
+#0b) add another tab that has my info
 #1) dynamic UI so that K boxes and perhaps pop2 inputs and graphs change on buttons
 #2) signifing() the N and dN/dt values
-#3) put K line on the graph
+#3) put K lines on the graph
 
 #Competition
 #1) put pics in comp info tab
@@ -535,4 +556,5 @@ shinyApp(ui,server)
 #Both
 #1) user feedback around super high values--perhaps throws an error/warning message
 #2) add some style/formatting to information panel
+#3) hover over ui to get more information
 

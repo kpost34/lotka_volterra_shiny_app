@@ -257,9 +257,7 @@ ggplot(data=predDF) +
   geom_path(data=. %>% filter(text!="1x"),aes(x,y,group=text),color="gray50") +
   geom_point(data=. %>% filter(text=="1x"),aes(x,y),size=3) +
   geom_label_repel(data=pop_mods_labels,aes(x_eq,y_max,label=text)) +
-  geom_path(data=user_predDF,aes(x,y),color="steelblue") +
-  xlim(0,pmax(2.5*(gamma/delta),2.5*xo)) +
-  ylim(0,pmax(2.5*(alpha/beta),2.5*yo))
+  geom_path(data=user_predDF,aes(x,y),color="steelblue") 
   
   
 ## Plot x and y vs time
