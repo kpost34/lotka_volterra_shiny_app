@@ -249,7 +249,7 @@ predDF %>%
   summarize(x_eq=gamma/delta,
             y_max=max(y))-> pop_mods_labels
 
-#develop phase plot
+#develop phase-space plot
 ggplot(data=predDF) +
   theme_bw() +
   geom_hline(yintercept=alpha/beta,linetype=2,color="black") +

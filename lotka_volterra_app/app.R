@@ -130,8 +130,9 @@ ui<-navbarPage(
         tabsetPanel(
           id="pred_tabs",
           tabPanel("Plots",
-            htmlOutput("pred_title"),
+            htmlOutput("pred_time_title"),
             plotOutput("pred_time_plot"),
+            htmlOutput("pred_phase_title"),
             plotOutput("pred_phase_plot")
           ),
           tabPanel("Theory and math")
@@ -145,7 +146,7 @@ ui<-navbarPage(
         sliderInput("pred_delta","delta",value=0,min=0,max=1,step=0.05),
         sliderInput("pred_gamma","gamma",value=0,min=0,max=1,step=0.05),
         numericInput("pred_t","t",value=100,min=2,max=200),
-        actionButton("pred_button","Run model")
+        actionButton("pred_button","Show/hide plots")
       )
     )
   )
@@ -484,29 +485,34 @@ server<-function(input,output,session){
   })
   
   ## Start with plots hidden
-  hide("pred_title")
+  hide("pred_time_title")
   hide("pred_time_plot")
+  hide("pred_phase_title")
   hide("pred_phase_plot")
 
   ## Toggle print predator-prey plots
   observeEvent(input$pred_button,{
-    toggle("pred_title")
+    toggle("pred_time_title")
     toggle("pred_time_plot")
+    toggle("pred_phase_title")
     toggle("pred_phase_plot")
   })
   
-  #print predator-prey plot title
-  output$pred_title<-renderText(paste("<b>Population Size Over Time</b>"))
+  #print plot titles
+  output$pred_time_title<-renderText(paste("<b>Population Size Over Time</b>"))
+  output$pred_phase_title<-renderText(paste("<b>Phase-Space Plot</b>"))
   
   ## Develop two plots
   # Build pops vs. time plot
   output$pred_time_plot <- renderPlot({
     ggplot(data=user_predDF()) +
-      geom_line(aes(x=time,y=x,color="Prey")) +
-      geom_line(aes(x=time,y=y,color="Predator")) +
+      geom_line(aes(x=time,y=x,color="Prey",linetype="Prey")) +
+      geom_line(aes(x=time,y=y,color="Predator",linetype="Predator")) +
       scale_color_manual(name="",values=c("Prey"="blue","Predator"="red")) +
+      scale_linetype_manual(name="",values=c("Prey"=1,"Predator"=2)) +
       theme_bw() +
-      labs(y="Population size")
+      theme(legend.position="top") +
+      labs(y="population size",)
     },res=96) 
   
   
@@ -518,26 +524,32 @@ server<-function(input,output,session){
       summarize(x_eq=input$pred_gamma/input$pred_delta,y_max=max(y))
   })
   
-  #develop phase plot
+  #develop phase-space plot
   output$pred_phase_plot <- renderPlot({
     ggplot(data=predDF()) +
       theme_bw() +
       geom_hline(yintercept=input$pred_alpha/input$pred_beta,linetype=2,color="black") +
       geom_vline(xintercept=input$pred_gamma/input$pred_delta,linetype=2,color="black") +
-      geom_path(data=predDF() %>% filter(text!="1x"),aes(x,y,group=text),color="gray50") +
-      geom_point(data=predDF() %>% filter(text=="1x"),aes(x,y),size=3) +
+      geom_path(data=predDF() %>% filter(text!="1x"),aes(x,y,group=text,color="orbits")) +
+      geom_point(data=predDF() %>% filter(text=="1x"),aes(x,y,size="equilibrium")) +
       geom_label_repel(data=pop_mods_labs(),aes(x_eq,y_max,label=text)) +
-      geom_path(data=user_predDF(),aes(x,y),color="steelblue") 
+      geom_path(data=user_predDF(),aes(x,y,color="user")) +
+      scale_size_manual(name=NULL,values=c("equilibrium"=3)) +
+      scale_color_manual(name=NULL,values=c("orbits"="gray60","user"="steelblue")) +
+      labs(x="prey population size (x)",
+           y="predator population size (y)")
     },res=96) 
-}
+} 
 shinyApp(ui,server)
 
 #What to try next?
+#DONE
 #1) move legend of pop size over time to top/bottom
-#2) create and position legend for phase diagram
-#3) create title for phase diagram
-#4) remove toggle feature for pred plots??
-#5) rename axis labels for phase diagram
+#2) rename axis labels for phase diagram
+#3) create title for phase-space plot
+#4) create and position legend for phase diagram
+#5) remove toggle feature for pred plots?? instead, renamed button to show/hide plots
+
 
 
 #future changes
