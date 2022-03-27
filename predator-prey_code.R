@@ -2,7 +2,8 @@ library(tidyverse)
 library(deSolve)
 library(ggrepel)
 
-### Predator-prey Model-------------------
+#### Predator-prey Model-------------------
+### Hard coding approach
 ## Create a vector of parameters
 param_eq<-c(alpha<-0.8,
             beta<-0.1,
@@ -115,30 +116,33 @@ ggplot(outDF_eq) +
   ylim(0,(2.5*yo_eq))
   
 
-
-### More flexible, concise coding
-## Build DF of states
-#set parameters
+#------------------------------------------------------
+### Flexible-coding approach
+## Initial values 
+#store parameters as a vector
 params<-c(alpha<-0.8,
           beta<-0.1,
           delta<-0.02,
           gamma<-0.5)
 
-#select initial population sizes
+#store initial population sizes as a vector
 xo<-22
 yo<-7
 
 inits<-c(x=xo,y=yo)
 
-#build DF of 'graduated' initial population sizes
+#turn time into a vector
+times<-seq(0,100,by=.1) #here t=100
+
+
+## Build DF of 'graduated' initial population sizes
 pop_mods<-c(0.5,0.75,1,1.25,1.5)
 stateDF<-tibble(x=pop_mods*(gamma/delta),
                 y=pop_mods*(alpha/beta),
                 text=c("0.5x","0.75x","1x","1.25x","1.5x"))
 
 
-## Develop population DFs
-#create function for ode()
+## Model equations for ode()
 LVpred<-function(t,state,parameters){
   with(as.list(c(state,parameters)),{
     #rate of change equations
@@ -150,23 +154,94 @@ LVpred<-function(t,state,parameters){
   })
 }
 
-#time specification
-times<-seq(0,100,by=.1)
 
-#iteratively run function on stateDF
+## Iteratively run ode() on stateDF
 apply(stateDF[,1:2],1,
       function(x) as_tibble(ode(x %>% as.numeric() %>% setNames(c("x","y")),
                                 times,LVpred,params))) -> predList 
 
 Map(cbind,predList,text=stateDF[[3]]) %>%
   do.call("rbind",.) -> predDF
-                                            
 
-#run function on initial population sizes
+
+## Run function on initial population sizes
 ode(inits,times,LVpred,params) %>%
   as_tibble() -> user_predDF
 
+#NOTE: ends with two dfs: predDF (DFs of various proportions/multipliers of equilibrium pop sizes) and user_predDF 
+#(the DF generated from the initial pop sizes selected by user)
 
+#---------------------------------------------------------------------------
+### Function-oriented approach
+## Initial values
+a<-0.8
+b<-0.1
+d<-0.02
+g<-0.5
+
+xo<-22
+yo<-7
+
+t<-100
+
+## Create functions
+# Model equations for ode()
+LVpred<-function(t,state,parameters){
+  with(as.list(c(state,parameters)),{
+    #rate of change equations
+    dxdt<-(alpha*x)-(beta*x*y)
+    dydt<-(delta*x*y)-(gamma*y)
+    
+    #returns rate of change
+    list(c(dxdt,dydt))
+  })
+}
+
+# Build stateDF & iterate ode() over varied initial population sizes
+predDF_builder<-function(alpha,beta,delta,gamma,t,func){
+  #deSolve needed for ode()
+  require(deSolve)
+  #start with a pop_modifier vector
+  mods<-c(0.5,0.75,1,1.25,1.5)
+  #create stateDF using parameters
+  tibble(prey=mods*(gamma/delta),
+         pred=mods*(alpha/beta),
+         text=paste0(mods,"x"))->stateDF
+  #created times vector from t
+  seq(0,t,by=.1)->times
+  #turn parameters into vector
+  pars<-c(alpha=alpha,beta=beta,delta=delta,gamma=gamma)
+  #iterate ode() over each combination of pop sizes and append multiplier as text in third col
+  apply(stateDF[,1:2],1,
+        function(x) as_tibble(ode(x %>% as.numeric() %>% setNames(c("x","y")),
+                                  times,func,pars))) %>%
+    Map(cbind,.,text=stateDF[[3]]) %>%
+    do.call("rbind",.) 
+}
+#Additional notes about function: 
+#1) stateDF contains x & y that have been modified based on parameter ratios and a third column, text, that contains
+#the modifier as a character string (e.g., "1.5x")
+#2) t contains time as a sequence vector
+#3) func contains the function that will be fed into ode()
+#4) pars contains a vector of the parameters (i.e., alpha, beta, delta, gamma)
+
+# Output x & y from user-defined initial pop values
+user_predDF_builder<-function(xo,yo,alpha,beta,delta,gamma,t,func){
+  require(deSolve)
+  inits<-c(x=xo,y=yo)
+  pars<-c(alpha=alpha,beta=beta,delta=delta,gamma=gamma)
+  times<-seq(0,t,by=0.1)
+  ode(inits,times,LVpred,pars) %>%
+    as_tibble() 
+}
+
+
+## Apply functions
+predDF<-predDF_builder(a,b,d,g,t,LVpred)
+user_predDF<-user_predDF_builder(xo,yo,a,b,d,g,t,LVpred)
+
+
+#----------------------------------------------------------------------------
 ## Build plot phases and add plot of initial population sizes
 #create label dataframe
 predDF %>%
