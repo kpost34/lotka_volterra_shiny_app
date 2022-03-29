@@ -51,9 +51,9 @@ ui<-navbarPage(position="fixed-bottom",
           tabPanel("More Information",
               br(),
             h4("Background"),
-            p("This app was developed to illustrate the differences between exponential and logistic population growth",
-              "and the impact of parameter (i.e., N, r, t, K) changes on their respective growth curves. The equations", 
-              "to calculate growth rates are as follows:"),
+            p("This mini-app was developed to illustrate the differences between exponential and logistic population growth",
+              "and the impact of changes to parameters and initial conditions (i.e., N, r, t, K) changes on their respective", 
+              "growth curves. The equations to calculate growth rates are as follows:"),
             p(strong("Exponential growth"),": dN/dt = rN"),
             p(strong("Logistic growth"),": dN/dt = r((K - N)/K) * N"),
               br(),
@@ -62,8 +62,8 @@ ui<-navbarPage(position="fixed-bottom",
               "curve(s) to display. Set K for logistic growth. Graphs will be re-drawn as you adjust the parameters. Click",
               "the curves to display N and dN/dt values at each t."),
               br(),
-            h4("Competition and Predation Apps"),
-            p("Click the \"Competition\" or \"Predation\" tabs at the bottom of the page to access interactive apps for",
+            h4("Competition and Predation Mini-Apps"),
+            p("Click the \"Competition\" or \"Predation\" tabs at the bottom of the page to access interactive mini-apps for",
               "Lotka-Volterra competition and predation models, respectively. Each page has a set of input boxes and sliders",
               "and accompanying instructions.")
           ),
@@ -132,7 +132,35 @@ ui<-navbarPage(position="fixed-bottom",
           )
         )
       ),
-      tabPanel("Background")
+      tabPanel("Background",
+        br(),
+        fluidRow(
+          column(7,
+            p("This mini-app allows a user to simulate the outcomes of two competing species under", 
+              "Lotka-Volterra dynamics by adjusting initial population sizes (i.e., N1, N2),",
+              "various population growth parameters (i.e., r, K of each species), competition", 
+              "coefficients (i.e., alpha21, alpha12), and the length of the simulation, t. The",
+              "differential equations that govern these dynamics are as follows:"),
+            p("dN1/dt = (r1 * N1)(1 - ((N1 + alpha21 * N2)/K1))"),
+            p("dN2/dt = (r2 * N2)(1 - ((N2 + alpha12 * N1)/K2))"),
+              br(),
+            p("When plotted in N1 vs N2 space, data points within sections bounded by isoclines",
+            "(i.e., lines that have dN/dt = 0 for each species) determine the outcome of the", 
+            "interaction. There are four possible outcomes:"),
+            p("1)", strong("Species 1 wins"), ": The species 1 isocline is above the species 2 isocline, and this outcome has only",
+            "one stable equilibrium at (K1, 0)."),
+            p("2)", strong("Species 2 wins"), ": Similar to scenario 1 except that now isocline 2 is above isocline 1, making",
+            "species 2 the winner"),
+            p("3)", strong("Stable equilibrium: coexistence"), ": In this case there is a stable equilibrium below each species",
+            "carrying capacity where their isoclines intersect"),
+            p("4)", strong("Unstable equilibrium"), ": Here there are three equilibrium, but the joint equilibrium where the",
+            "two isoclines intersect is unstable equilibrium. The winning species is determined by initial population sizes.")
+          ),
+          column(5,
+            imageOutput("comp_pic")
+          )
+        )
+      )
     )
   ),
   tabPanel("Predation",
@@ -148,9 +176,25 @@ ui<-navbarPage(position="fixed-bottom",
             htmlOutput("pred_phase_title"),
             plotOutput("pred_phase_plot")
           ),
-          tabPanel("Theory and math")
-        )
-      ),
+          tabPanel("Equations and background",
+            p("The Lotka-Volterra predator-prey equations are as follows:"),
+            p(strong("prey"), ": dx/dt = (alpha * x) - (beta * x * y)"),
+            p(strong("predator"), ": dy/dt = (delta * x * y) - (gamma * y)"),
+            p("The prey and predator population sizes are represented by x and y, respectively, and t denotes time",
+              "The first part of the prey equation (alpha * x) represents exponential growth, while the second",
+              "component indicates the rate of prey loss due to predation upon. The predator equation also has",
+              "two components: 1) (delta * x * y) represents predator population growth due to predation and",
+              "2) (gamma * y) quantifies predator loss due to death or emigration."),
+            p("These equations produce a cyclical pattern. Predators encounter and eat prey, increaing their,",
+              "population size while decreasing prey abundance. Eventually prey encounters diminish, predators",
+              "die, and the prey population recuperates"),
+            p("Solving for equilibrium points of these equations (when both dx/dt and dy/dt = 0) yields two",
+              "solutions: both populations extinct (0,0) or (alpha/beta, gamma/delta). The former is a saddle",
+              "point, making extinction unlikely. The latter is the center for closed orbits. The phase-space",
+              "plot shows a range of orbits that are proportions/multiples of the equilbirum coordinates.")
+            )
+          )
+        ),
       sidebarPanel(
         numericInput("pred_x","x",value=50,min=0,max=1000),
         sliderInput("pred_alpha","alpha",value=0,min=0,max=1,step=0.05),
@@ -414,6 +458,14 @@ server<-function(input,output,session){
   
   
   ## PAGE 2: Competition Models
+  # Output picture of scenarios
+  output$comp_pic<-renderImage({
+    list(
+      src=file.path("l_v_images","lotka_volterra_competition.svg"),
+      width=450,
+      height=450
+    )
+  })
   # Produce reactive functions of data
   #generate competition model and isocline dataframes
   comp_data<-reactive({
@@ -584,20 +636,18 @@ shinyApp(ui,server)
 
 #DONE
 ## Pop Growth
-#add another tab that briefly explains rest of app
-#add another tab that has my info
-#signifing() the N and dN/dt values
-#put K lines on the graph
+
 
 ## Competition
-#fix layout of plots
-#increase text sizes on plots
+# add background information
+# add image of scenarios to background information
+
 
 ## Predation
-#legends on bottom
-#move top plot title down a line
+# add background information
 
-
+## All apps
+# check that parameter ranges are accurate
 
 
 #FUTURE CHANGES
@@ -607,25 +657,19 @@ shinyApp(ui,server)
 
 
 #Competition
-#1) put pics in comp info tab
 #3) option to have animated/static plot(s)
 #4) improve loading time of animated plots
 #4b) warning message that animation takes long time to load
 #5) user feedback while loading animated plot
-#6) add background information
+
 
 
 #Predation
-#1) add background information
-#3) move panel down
-#5) display equation under panel on right side
+
 
 #Both/all three
 #1) user feedback around super high values--perhaps throws an error/warning message
 #2) add some style/formatting to information panel
 #3) hover over ui to get more information
-#4) check that parameter ranges are accurate
-
-#Other
-#space out tabs to navbar
+#4) space out tabs to navbar
 
