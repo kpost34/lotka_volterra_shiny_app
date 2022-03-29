@@ -9,7 +9,7 @@ library(ggrepel)
 
 
 ### Create user interface
-ui<-navbarPage(
+ui<-navbarPage(position="fixed-bottom",
   useShinyjs(),
   theme=bslib::bs_theme(bootswatch="flatly"),
   tabPanel("Population Growth",
@@ -48,19 +48,33 @@ ui<-navbarPage(
                 plotOutput("log_growth",click="plot_click_log")
               ),
           ), 
-          tabPanel("Information",
+          tabPanel("More Information",
               br(),
-            h3("Background"),
+            h4("Background"),
             p("This app was developed to illustrate the differences between exponential and logistic population growth",
               "and the impact of parameter (i.e., N, r, t, K) changes on their respective growth curves. The equations", 
               "to calculate growth rates are as follows:"),
             p(strong("Exponential growth"),": dN/dt = rN"),
             p(strong("Logistic growth"),": dN/dt = r((K - N)/K) * N"),
               br(),
-            h3("Instructions"),
+            h4("Instructions"),
             p("Click the \"Plots\" tab. Input your N, t, and r values for each population, and select the type(s) of growth", 
               "curve(s) to display. Set K for logistic growth. Graphs will be re-drawn as you adjust the parameters. Click",
-              "the curves to display N and dN/dt values at each t.")
+              "the curves to display N and dN/dt values at each t."),
+              br(),
+            h4("Competition and Predation Apps"),
+            p("Click the \"Competition\" or \"Predation\" tabs at the bottom of the page to access interactive apps for",
+              "Lotka-Volterra competition and predation models, respectively. Each page has a set of input boxes and sliders",
+              "and accompanying instructions.")
+          ),
+          tabPanel("Developer",
+            p(h4(strong("Keith Post"))),
+            p("If you would like to see the code for this Shiny app, please visit my",
+              tags$a(href="https://github.com/kpost34/lotka_volterra_shiny_app",
+                     "Github repo.")
+            ),
+            p(tags$a(href="https://github.com/kpost34","GitHub Profile")),
+            p(tags$a(href="https://www.linkedin.com/in/keith-post","LinkedIn")), 
           )
         )
       ),
@@ -76,18 +90,16 @@ ui<-navbarPage(
     )
   ),
   tabPanel("Competition",
+    titlePanel("Lotka-Volterra Competition Model"),
     tabsetPanel(id="comp_tabs",
       tabPanel("Simulation",         
-        titlePanel("Lotka-Volterra Competition Model"),
-        fluidRow(
-          column(4.5,
-            plotOutput("comp_time_plot")),
-          column(4.5,
+        fluidRow(style="height:600px",
+          column(6,
+            plotOutput("comp_time_plot")
+            ),
+          column(6,
             plotOutput("comp_iso_plot")
             ),
-          column(3,
-            tableOutput("coord_comp")
-          )
         ),
         wellPanel(
           fluidRow(
@@ -104,17 +116,17 @@ ui<-navbarPage(
           fluidRow(
             column(4,
               numericInput("N1_comp","N",value=50,min=1,max=1000,width="50%"),
-              sliderInput("r1_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
+              sliderInput("r1_comp","r",value=0,min=0,max=1,step=0.05,width="50%"),
               numericInput("K1_comp","K",value=100,min=1,max=1000,width="50%")
             ),
             column(4,
               numericInput("t_comp","t",value=20,min=2,max=200,width="50%"),
-              sliderInput("alpha21_comp","alpha21",value=0,min=-1,max=1,step=0.1,width="50%"),
-              sliderInput("alpha12_comp","alpha12",value=0,min=-1,max=1,step=0.1,width="50%")
+              sliderInput("alpha21_comp","alpha21",value=0,min=0,max=1,step=0.1,width="50%"),
+              sliderInput("alpha12_comp","alpha12",value=0,min=0,max=1,step=0.1,width="50%")
             ),
             column(4,
               numericInput("N2_comp","N",value=50,min=1,max=1000,width="50%"),
-              sliderInput("r2_comp","r",value=0,min=-1,max=1,step=0.05,width="50%"),
+              sliderInput("r2_comp","r",value=0,min=0,max=1,step=0.05,width="50%"),
               numericInput("K2_comp","K",value=100,min=1,max=1000,width="50%")
             )
           )
@@ -130,6 +142,7 @@ ui<-navbarPage(
         tabsetPanel(
           id="pred_tabs",
           tabPanel("Plots",
+              br(),
             htmlOutput("pred_time_title"),
             plotOutput("pred_time_plot"),
             htmlOutput("pred_phase_title"),
@@ -173,6 +186,7 @@ exp_pop_growth<-function(No,r,t){
     popDF$N[i]<-popDF$N[i-1] + popDF$dNdt[i-1]
     popDF$dNdt[i]<-popDF$N[i] * r
   }
+  popDF[,c("N","dNdt")]<-signif(popDF[,c("N","dNdt")],3)
   popDF
 }
 
@@ -194,6 +208,7 @@ log_pop_growth<-function(No,r,t,K){
     logDF$N[i]<-logDF$N[i-1] + logDF$dNdt[i-1]
     logDF$dNdt[i]<-r * ((K - logDF$N[i])/K) * logDF$N[i]
   }
+  logDF[,c("N","dNdt")]<-signif(logDF[,c("N","dNdt")],3)
   logDF
 }
 
@@ -368,6 +383,8 @@ server<-function(input,output,session){
       ggplot() +
         geom_line(aes(t,N,color=pop)) +
         scale_color_manual(values=c("darkred","darkblue")) +
+        geom_hline(yintercept=input$carry1,linetype=2,color="darkred") +
+        geom_hline(yintercept=input$carry2,linetype=2,color="darkblue") +
         theme_bw() +
         theme(axis.text=element_text(size=11),
               legend.position="bottom",
@@ -425,17 +442,24 @@ server<-function(input,output,session){
     
     comp_data() %>%
       ggplot() +
-        geom_line(aes(t,N1),color="red") +
-        geom_line(aes(t,N2),color="blue") +
+        geom_line(aes(t,N1,color="species1")) +
+        geom_line(aes(t,N2,color="species2")) +
         scale_x_continuous(expand=c(0,0)) +
-        labs(y="N") +
+        scale_color_manual(values=c("species1"="darkred","species2"="darkblue")) +
+        labs(x="time",
+             y="population size (N)") +
         theme_bw() +
+        theme(axis.title=element_text(size=14),
+              axis.text=element_text(size=12),
+              legend.position="bottom",
+              legend.title=element_blank(),
+              legend.text=element_text(size=12)) +
         transition_reveal(t) -> c_plot1
     
       anim_save("outfile1.gif",animate(c_plot1,renderer = gifski_renderer(loop=FALSE)))
       
       list(src = "outfile1.gif",
-           contentType = 'image/gif'
+           contentType = 'image/gif' 
            # width = 400,
            # height = 300,
            # alt = "This is alternate text"
@@ -450,8 +474,9 @@ server<-function(input,output,session){
       ggplot(aes(N1,N2,color=isocline)) +
         geom_line() +
         geom_point() +
-        geom_text(aes(label=text),color="black",hjust="inward",vjust="inward") +
-        annotate(geom="text",x=Inf,y=Inf,hjust="right",vjust="top",fontface=2,
+        scale_color_manual(values=c("darkred","darkblue")) +
+        geom_text(aes(label=text),color="black",size=4,fontface="bold",hjust="inward",vjust="inward") +
+        annotate(geom="text",x=Inf,y=Inf,hjust="right",vjust="top",fontface="bold",size=6,
                  label=case_when(
                    (input$K1_comp/input$alpha12_comp > input$K2_comp) & (input$K1_comp > input$K2_comp/input$alpha21_comp) ~ "Species 1 wins",
                    (input$K2_comp > input$K1_comp/input$alpha12_comp) & (input$K2_comp/input$alpha21_comp > input$K1_comp) ~ "Species 2 wins",
@@ -461,8 +486,14 @@ server<-function(input,output,session){
         geom_point(data=comp_data(),aes(N1,N2),color="darkgreen") +
         transition_time(comp_data()$t) +
         shadow_mark(past=TRUE,future=FALSE,alpha=0.3) +
-        theme(legend.position="bottom") +
-        theme_bw() -> c_plot2
+        labs(x="N (species1)",
+             y="N (species2)") +
+        theme_bw() +
+        theme(axis.title=element_text(size=14),
+              axis.text=element_text(size=12),
+              legend.position="bottom",
+              legend.title=element_text(size=14),
+              legend.text=element_text(size=12)) -> c_plot2
     
     anim_save("outfile2.gif",animate(c_plot2,renderer = gifski_renderer(loop=FALSE)))
     
@@ -511,8 +542,12 @@ server<-function(input,output,session){
       scale_color_manual(name="",values=c("Prey"="blue","Predator"="red")) +
       scale_linetype_manual(name="",values=c("Prey"=1,"Predator"=2)) +
       theme_bw() +
-      theme(legend.position="top") +
-      labs(y="population size",)
+      theme(axis.title=element_text(size=13),
+            axis.text=element_text(size=11),
+            legend.position="bottom",
+            legend.title=element_text(size=13),
+            legend.text=element_text(size=11)) +
+      labs(y="population size")
     },res=96) 
   
   
@@ -528,6 +563,11 @@ server<-function(input,output,session){
   output$pred_phase_plot <- renderPlot({
     ggplot(data=predDF()) +
       theme_bw() +
+      theme(axis.title=element_text(size=13),
+            axis.text=element_text(size=11),
+            legend.position="right",
+            legend.title=element_text(size=13),
+            legend.text=element_text(size=11)) +
       geom_hline(yintercept=input$pred_alpha/input$pred_beta,linetype=2,color="black") +
       geom_vline(xintercept=input$pred_gamma/input$pred_delta,linetype=2,color="black") +
       geom_path(data=predDF() %>% filter(text!="1x"),aes(x,y,group=text,color="orbits")) +
@@ -535,38 +575,57 @@ server<-function(input,output,session){
       geom_label_repel(data=pop_mods_labs(),aes(x_eq,y_max,label=text)) +
       geom_path(data=user_predDF(),aes(x,y,color="user")) +
       scale_size_manual(name=NULL,values=c("equilibrium"=3)) +
-      scale_color_manual(name=NULL,values=c("orbits"="gray60","user"="steelblue")) +
+      scale_color_manual(name=NULL,values=c("orbits"="gray60","user"="darkgreen")) +
       labs(x="prey population size (x)",
            y="predator population size (y)")
     },res=96) 
 } 
 shinyApp(ui,server)
 
-#What to try next?
 #DONE
-#1) move legend of pop size over time to top/bottom
-#2) rename axis labels for phase diagram
-#3) create title for phase-space plot
-#4) create and position legend for phase diagram
-#5) remove toggle feature for pred plots?? instead, renamed button to show/hide plots
+## Pop Growth
+#add another tab that briefly explains rest of app
+#add another tab that has my info
+#signifing() the N and dN/dt values
+#put K lines on the graph
+
+## Competition
+#fix layout of plots
+#increase text sizes on plots
+
+## Predation
+#legends on bottom
+#move top plot title down a line
 
 
 
-#future changes
+
+#FUTURE CHANGES
 #Population growth
-#0) add another tab that briefly explains rest of app
-#0b) add another tab that has my info
 #1) dynamic UI so that K boxes and perhaps pop2 inputs and graphs change on buttons
-#2) signifing() the N and dN/dt values
-#3) put K lines on the graph
+#2) remove trailing zeros of N and dN/dt for pop growth tab
+
 
 #Competition
 #1) put pics in comp info tab
-#2) animated plot
 #3) option to have animated/static plot(s)
+#4) improve loading time of animated plots
+#4b) warning message that animation takes long time to load
+#5) user feedback while loading animated plot
+#6) add background information
 
-#Both
+
+#Predation
+#1) add background information
+#3) move panel down
+#5) display equation under panel on right side
+
+#Both/all three
 #1) user feedback around super high values--perhaps throws an error/warning message
 #2) add some style/formatting to information panel
 #3) hover over ui to get more information
+#4) check that parameter ranges are accurate
+
+#Other
+#space out tabs to navbar
 
