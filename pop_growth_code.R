@@ -17,7 +17,7 @@ popDF$N[1]<-No
 popDF$dNdt[1]<-No * r
 
 #populate cells in systematic fashion
-for(i in 2:t){
+for(i in 2:(t+1)){
   popDF$N[i]<-popDF$N[i-1] + popDF$dNdt[i-1]
   popDF$dNdt[i]<-popDF$N[i] * r
 }
@@ -43,7 +43,7 @@ exp_pop_growth<-function(No,r,t){
   popDF$dNdt[1]<-No * r
   
   #populate cells in systematic fashion
-  for(i in 2:t){
+  for(i in 2:(t+1)){
     popDF$N[i]<-popDF$N[i-1] + popDF$dNdt[i-1]
     popDF$dNdt[i]<-popDF$N[i] * r
   }
@@ -51,7 +51,7 @@ exp_pop_growth<-function(No,r,t){
 }
 
 #graph N vs. t
-exp_pop_growth(100,.3,50) %>% ggplot(aes(t,N)) + geom_line()
+exp_pop_growth(100,.3,10) %>% ggplot(aes(t,N)) + geom_line()
 
 
 
@@ -73,7 +73,7 @@ logDF$N[1]<-No
 logDF$dNdt[1]<-r * ((K - No)/K) * No
 
 #populate cells in systematic fashion
-for(i in 2:t){
+for(i in 2:(t+1)){
   logDF$N[i]<-logDF$N[i-1] + logDF$dNdt[i-1]
   logDF$dNdt[i]<-r * ((K - logDF$N[i])/K) * logDF$N[i]
 }
@@ -91,7 +91,7 @@ log_pop_growth<-function(No,r,t,K){
   logDF$dNdt[1]<-r * ((K - No)/K) * No
   
   #populate cells in systematic fashion
-  for(i in 2:t){
+  for(i in 2:(t+1)){
     logDF$N[i]<-logDF$N[i-1] + logDF$dNdt[i-1]
     logDF$dNdt[i]<-r * ((K - logDF$N[i])/K) * logDF$N[i]
   }

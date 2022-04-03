@@ -4,8 +4,11 @@ library(bslib)
 library(tidyverse)
 library(gganimate)
 library(gifski)
+library(waiter)
 library(deSolve)
 library(ggrepel)
+
+options(digits=5,scipen=0)
 
 
 ### Create user interface
@@ -21,13 +24,14 @@ ui<-navbarPage(position="fixed-bottom",
           numericInput("pop1","N",value=50,min=1,max=1000,width="75%"),
           numericInput("time1","t",value=20,min=2,max=500,width="75%"),
           sliderInput("per_cap_gr1","r",value=0,min=-1,max=1,step=0.05,width="75%"),
-          numericInput("carry1","K",value=100,min=1,max=1000,width="75%"),
+          uiOutput("carry1"),
             br(),
+          checkboxInput("pop2_display","Display second population"),
           h5("Population 2"),
           numericInput("pop2","N",value=50,min=1,max=1000,width="75%"),
           numericInput("time2","t",value=20,min=2,max=500,width="75%"),
           sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.05,width="75%"),
-          numericInput("carry2","K",value=100,min=1,max=1000,width="75%"),
+          uiOutput("carry2"),
             br(),
             br(),
           actionButton("exp_button","Exponential growth"),
@@ -95,39 +99,53 @@ ui<-navbarPage(position="fixed-bottom",
       tabPanel("Simulation",         
         fluidRow(style="height:600px",
           column(6,
+            plotOutput("comp_time_anim"),
             plotOutput("comp_time_plot")
             ),
           column(6,
+            plotOutput("comp_iso_anim"),
             plotOutput("comp_iso_plot")
             ),
         ),
         wellPanel(
           fluidRow(
-            column(4,
-              h5(strong("Population 1"))
+            column(2,
+              h5(strong("Species 1"))
             ),
-            column(4,
-              actionButton("comp_button","Run model"),
+            column(4),
+            column(2,
+              h5(strong("Species 2"))
             ),
-            column(4,
-              h5(strong("Population 2"))
-            )
+            column(4),
           ),
           fluidRow(
-            column(4,
-              numericInput("N1_comp","N",value=50,min=1,max=1000,width="50%"),
-              sliderInput("r1_comp","r",value=0,min=0,max=1,step=0.05,width="50%"),
-              numericInput("K1_comp","K",value=100,min=1,max=1000,width="50%")
+            column(2,
+              numericInput("N1_comp","N",value=50,min=1,max=1000),
+              sliderInput("r1_comp","r",value=0,min=0,max=1,step=0.05),
+              numericInput("K1_comp","K",value=100,min=1,max=1000)
             ),
-            column(4,
-              numericInput("t_comp","t",value=20,min=2,max=200,width="50%"),
-              sliderInput("alpha21_comp","alpha21",value=0,min=0,max=1,step=0.1,width="50%"),
-              sliderInput("alpha12_comp","alpha12",value=0,min=0,max=1,step=0.1,width="50%")
+            column(1),
+            column(2, 
+              numericInput("t_comp","t",value=20,min=2,max=200),
+              sliderInput("alpha21_comp","alpha21",value=0,min=0,max=1,step=0.1),
+              sliderInput("alpha12_comp","alpha12",value=0,min=0,max=1,step=0.1)
             ),
-            column(4,
-              numericInput("N2_comp","N",value=50,min=1,max=1000,width="50%"),
-              sliderInput("r2_comp","r",value=0,min=0,max=1,step=0.05,width="50%"),
-              numericInput("K2_comp","K",value=100,min=1,max=1000,width="50%")
+            column(1),
+            column(2,
+              numericInput("N2_comp","N",value=50,min=1,max=1000),
+              sliderInput("r2_comp","r",value=0,min=0,max=1,step=0.05),
+              numericInput("K2_comp","K",value=100,min=1,max=1000)
+            ),
+            column(1),
+            column(3,
+                br(),
+                br(),
+                br(),
+                br(),
+                br(),
+              actionButton("comp_plot_button","Show/hide plots"),
+              waiter::use_waiter(),
+              actionButton("comp_anim_button","Run animation"),
             )
           )
         )
@@ -151,10 +169,10 @@ ui<-navbarPage(position="fixed-bottom",
             "one stable equilibrium at (K1, 0)."),
             p("2)", strong("Species 2 wins"), ": Similar to scenario 1 except that now isocline 2 is above isocline 1, making",
             "species 2 the winner"),
-            p("3)", strong("Stable equilibrium: coexistence"), ": In this case there is a stable equilibrium below each species",
-            "carrying capacity where their isoclines intersect"),
-            p("4)", strong("Unstable equilibrium"), ": Here there are three equilibrium, but the joint equilibrium where the",
-            "two isoclines intersect is unstable equilibrium. The winning species is determined by initial population sizes.")
+            p("3)", strong("Stable equilibrium: coexistence"), ": In this case there is a stable equilibrium where the two",
+            "isoclines intersect, which is below each species' carrying capacity"),
+            p("4)", strong("Unstable equilibrium"), ": Here there are three equilibria, but the joint equilibrium where the",
+            "two isoclines intersect is unstable. The winning species is determined by initial population sizes.")
           ),
           column(5,
             imageOutput("comp_pic")
@@ -166,7 +184,7 @@ ui<-navbarPage(position="fixed-bottom",
   tabPanel("Predation",
     titlePanel("Lotka-Volterra Predator-Prey Model"),
     sidebarLayout(
-      mainPanel(
+      mainPanel(width=9,
         tabsetPanel(
           id="pred_tabs",
           tabPanel("Plots",
@@ -182,7 +200,7 @@ ui<-navbarPage(position="fixed-bottom",
             p(strong("predator"), ": dy/dt = (delta * x * y) - (gamma * y)"),
             p("The prey and predator population sizes are represented by x and y, respectively, and t denotes time",
               "The first part of the prey equation (alpha * x) represents exponential growth, while the second",
-              "component indicates the rate of prey loss due to predation upon. The predator equation also has",
+              "component indicates the rate of prey loss due to predation. The predator equation also has",
               "two components: 1) (delta * x * y) represents predator population growth due to predation and",
               "2) (gamma * y) quantifies predator loss due to death or emigration."),
             p("These equations produce a cyclical pattern. Predators encounter and eat prey, increaing their,",
@@ -195,7 +213,7 @@ ui<-navbarPage(position="fixed-bottom",
             )
           )
         ),
-      sidebarPanel(
+      sidebarPanel(width=3,
         numericInput("pred_x","x",value=50,min=0,max=1000),
         sliderInput("pred_alpha","alpha",value=0,min=0,max=1,step=0.05),
         sliderInput("pred_beta","beta",value=0,min=0,max=1,step=0.05),
@@ -211,7 +229,7 @@ ui<-navbarPage(position="fixed-bottom",
 
   
 
-### Create functions
+#### Create functions------------------------------------------------------------------------
 ## Population growth functions
 #exponential population growth function
 exp_pop_growth<-function(No,r,t){
@@ -226,11 +244,10 @@ exp_pop_growth<-function(No,r,t){
   popDF$dNdt[1]<-No * r
   
   #populate cells in systematic fashion
-  for(i in 2:t){
+  for(i in 2:(t+1)){
     popDF$N[i]<-popDF$N[i-1] + popDF$dNdt[i-1]
     popDF$dNdt[i]<-popDF$N[i] * r
   }
-  popDF[,c("N","dNdt")]<-signif(popDF[,c("N","dNdt")],3)
   popDF
 }
 
@@ -248,11 +265,10 @@ log_pop_growth<-function(No,r,t,K){
   logDF$dNdt[1]<-r * ((K - No)/K) * No
   
   #populate cells in systematic fashion
-  for(i in 2:t){
+  for(i in 2:(t+1)){
     logDF$N[i]<-logDF$N[i-1] + logDF$dNdt[i-1]
     logDF$dNdt[i]<-r * ((K - logDF$N[i])/K) * logDF$N[i]
   }
-  logDF[,c("N","dNdt")]<-signif(logDF[,c("N","dNdt")],3)
   logDF
 }
 
@@ -356,7 +372,17 @@ user_predDF_builder<-function(xo,yo,alpha,beta,delta,gamma,t,func){
     as_tibble() 
 }
 
-### Create server function
+## Create modal-----------------------------------------------------------------------------------------
+modal_confirm<-modalDialog(
+  "Are you sure you want to continue?",
+  title="Warning: Animation takes roughly a minute to load",
+  footer=tagList(
+    actionButton("cancel","Cancel"),
+    actionButton("ok","Proceed",class="btn btn-primary")
+  )
+)
+
+### Create server function------------------------------------------------------------------------------
 server<-function(input,output,session){
 
   ## PAGE 1: Population Growth Models
@@ -366,8 +392,8 @@ server<-function(input,output,session){
   exp_data2<-reactive(exp_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2))
   
   #generate logistic pop growth data
-  log_data1<-reactive(log_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1,K=input$carry1))
-  log_data2<-reactive(log_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2,K=input$carry2))
+  log_data1<-reactive(log_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1,K=req(input$K1)))
+  log_data2<-reactive(log_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2,K=req(input$K2)))
   
   #Exponential growth plot
   #start with exp plot and title hidden
@@ -400,7 +426,8 @@ server<-function(input,output,session){
   #print exponential plot click output on hits only
   output$coord_exp<-renderTable({
     req(input$plot_click_exp)
-    coord_exp_dat<-nearPoints(pop_c(exp_data1(),exp_data2()),input$plot_click_exp,threshold=10)
+    coord_exp_dat<-nearPoints(pop_c(exp_data1(),exp_data2()),input$plot_click_exp,threshold=8) %>%
+      mutate(across(N:dNdt,~formatC(.x,format="g",digits=4)))
     if(nrow(coord_exp_dat)==0) 
       return()
     coord_exp_dat
@@ -411,11 +438,15 @@ server<-function(input,output,session){
   #start with logistic plot and title hidden
   hide("log_title")
   hide("log_growth")
+  hide("carry1")
+  hide("carry2")
   
   #toggle print logistic growth title & plot
   observeEvent(input$log_button,{
     toggle("log_title")
     toggle("log_growth")
+    toggle("carry1")
+    toggle("carry2")
   })
   
   #print logistic plot title
@@ -427,8 +458,8 @@ server<-function(input,output,session){
       ggplot() +
         geom_line(aes(t,N,color=pop)) +
         scale_color_manual(values=c("darkred","darkblue")) +
-        geom_hline(yintercept=input$carry1,linetype=2,color="darkred") +
-        geom_hline(yintercept=input$carry2,linetype=2,color="darkblue") +
+        geom_hline(yintercept=input$K1,linetype=2,color="darkred") +
+        geom_hline(yintercept=input$K2,linetype=2,color="darkblue") +
         theme_bw() +
         theme(axis.text=element_text(size=11),
               legend.position="bottom",
@@ -437,10 +468,19 @@ server<-function(input,output,session){
         labs(x="time (t)",y="population size (N)",color="Population")
   },res=96) 
   
+  #display K input boxes dynamically
+  output$carry1<-renderUI({
+    numericInput("K1","K",value=100,min=1,max=1000,width="75%")
+  })
+  output$carry2<-renderUI({
+    numericInput("K2","K",value=100,min=1,max=1000,width="75%")
+  })
+  
   #print logistic plot click output on hits only
   output$coord_log<-renderTable({
     req(input$plot_click_log)
-    coord_log_dat<-nearPoints(pop_c(log_data1(),log_data2()),input$plot_click_log,threshold=10)
+    coord_log_dat<-nearPoints(pop_c(log_data1(),log_data2()),input$plot_click_log,threshold=8) %>%
+      mutate(across(N:dNdt,~formatC(.x,format="g",digits=4)))
     if(nrow(coord_log_dat)==0) 
       return()
     coord_log_dat
@@ -457,16 +497,15 @@ server<-function(input,output,session){
   )
   
   
-  ## PAGE 2: Competition Models
-  # Output picture of scenarios
+  ### PAGE 2: Competition Models
+  ## Output picture of scenarios
   output$comp_pic<-renderImage({
     list(
       src=file.path("l_v_images","lotka_volterra_competition.svg"),
       width=450,
-      height=450
-    )
-  })
-  # Produce reactive functions of data
+      height=450)
+    },deleteFile=FALSE)
+  ## Produce reactive functions of data
   #generate competition model and isocline dataframes
   comp_data<-reactive({
     comp_mod(No1=input$N1_comp,r1=input$r1_comp,alpha21=input$alpha21_comp,K1=input$K1_comp,
@@ -477,84 +516,125 @@ server<-function(input,output,session){
     isocliner(K1=input$K1_comp,alpha21=input$alpha21_comp,K2=input$K2_comp,alpha12=input$alpha12_comp)
     })
 
-  # Start with plots hidden
+  ## Start with plots/animations hidden
   hide("comp_time_plot")
   hide("comp_iso_plot")
+  hide("comp_time_anim")
+  hide("comp_iso_anim")
 
-  # Toggle print competition model plots
-  observeEvent(input$comp_button,{
+  ## Toggle print competition model plots/animations
+  #plots
+  observeEvent(input$comp_plot_button,{
     toggle("comp_time_plot")
     toggle("comp_iso_plot")
   })
   
-  # Produce competition model plots
-  #N vs t for both species
-  output$comp_time_plot<-renderImage({
-    outfile1<-tempfile(fileext=".gif")
+  #animations
+  observeEvent(input$comp_anim_button,{
+    showModal(modal_confirm)
+  })
+  
+  observeEvent(input$ok, {
+    toggle("comp_time_anim")
+    toggle("comp_iso_anim")
+    removeModal()
+  })
     
+  observeEvent(input$cancel, {
+    removeModal()
+  })
+  
+  
+  ## Produce reactive competition model plots and animations
+  # N vs t for both species
+  c_plot1<-reactive({
     comp_data() %>%
       ggplot() +
-        geom_line(aes(t,N1,color="species1")) +
-        geom_line(aes(t,N2,color="species2")) +
-        scale_x_continuous(expand=c(0,0)) +
-        scale_color_manual(values=c("species1"="darkred","species2"="darkblue")) +
-        labs(x="time",
-             y="population size (N)") +
-        theme_bw() +
-        theme(axis.title=element_text(size=14),
-              axis.text=element_text(size=12),
-              legend.position="bottom",
-              legend.title=element_blank(),
-              legend.text=element_text(size=12)) +
-        transition_reveal(t) -> c_plot1
+      geom_line(aes(t,N1,color="species1")) +
+      geom_line(aes(t,N2,color="species2")) +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_color_manual(values=c("species1"="darkred","species2"="darkblue")) +
+      labs(x="time",
+           y="population size (N)") +
+      theme_bw() +
+      theme(axis.title=element_text(size=14),
+            axis.text=element_text(size=12),
+            legend.position="bottom",
+            legend.title=element_blank(),
+            legend.text=element_text(size=12))
+  })
+  
+  #Plot
+  output$comp_time_plot<-renderPlot(c_plot1())
+  
+  #Animation
+  output$comp_time_anim<-renderImage({
+    waiter::Waiter$new(id="comp_time_anim",color="gray")$show()
+    outfile1<-tempfile(fileext=".gif")
     
-      anim_save("outfile1.gif",animate(c_plot1,renderer = gifski_renderer(loop=FALSE)))
+      anim_save("outfile1.gif",animate(c_plot1() + transition_reveal(t),nframes=50,renderer = gifski_renderer(loop=FALSE)))
       
       list(src = "outfile1.gif",
            contentType = 'image/gif' 
            # width = 400,
            # height = 300,
            # alt = "This is alternate text"
-      )}, deleteFile = TRUE)
+      )
+  }, deleteFile = TRUE)
 
   
-  #N1 vs N2 
-  output$comp_iso_plot<-renderImage({
-    outfile2<-tempfile(fileext=".gif")
-    
+  ## Produce reactive competition model plots and animations
+  # N1 vs N2 
+  c_plot2<-reactive({
     comp_iso_data() %>%
       ggplot(aes(N1,N2,color=isocline)) +
-        geom_line() +
-        geom_point() +
-        scale_color_manual(values=c("darkred","darkblue")) +
-        geom_text(aes(label=text),color="black",size=4,fontface="bold",hjust="inward",vjust="inward") +
-        annotate(geom="text",x=Inf,y=Inf,hjust="right",vjust="top",fontface="bold",size=6,
-                 label=case_when(
-                   (input$K1_comp/input$alpha12_comp > input$K2_comp) & (input$K1_comp > input$K2_comp/input$alpha21_comp) ~ "Species 1 wins",
-                   (input$K2_comp > input$K1_comp/input$alpha12_comp) & (input$K2_comp/input$alpha21_comp > input$K1_comp) ~ "Species 2 wins",
-                   (input$K2_comp > input$K1_comp/input$alpha12_comp) & (input$K1_comp > input$K2_comp/input$alpha21_comp) ~ "Unstable equilibrium",
-                   (input$K1_comp/input$alpha12_comp > input$K2_comp) & (input$K2_comp/input$alpha21_comp > input$K1_comp) ~ "Stable equilibrium: coexistence"),
-        ) +
-        geom_point(data=comp_data(),aes(N1,N2),color="darkgreen") +
-        transition_time(comp_data()$t) +
-        shadow_mark(past=TRUE,future=FALSE,alpha=0.3) +
-        labs(x="N (species1)",
-             y="N (species2)") +
-        theme_bw() +
-        theme(axis.title=element_text(size=14),
-              axis.text=element_text(size=12),
-              legend.position="bottom",
-              legend.title=element_text(size=14),
-              legend.text=element_text(size=12)) -> c_plot2
+      geom_line() +
+      geom_point() +
+      scale_color_manual(values=c("darkred","darkblue")) +
+      geom_text(aes(label=text),color="black",size=4,fontface="bold",hjust="inward",vjust="inward") +
+      annotate(geom="text",x=Inf,y=Inf,hjust="right",vjust="top",fontface="bold",size=6,
+               label=case_when(
+                 (input$K1_comp/input$alpha12_comp > input$K2_comp) & (input$K1_comp > input$K2_comp/input$alpha21_comp) ~ "Species 1 wins",
+                 (input$K2_comp > input$K1_comp/input$alpha12_comp) & (input$K2_comp/input$alpha21_comp > input$K1_comp) ~ "Species 2 wins",
+                 (input$K2_comp > input$K1_comp/input$alpha12_comp) & (input$K1_comp > input$K2_comp/input$alpha21_comp) ~ "Unstable equilibrium",
+                 (input$K1_comp/input$alpha12_comp > input$K2_comp) & (input$K2_comp/input$alpha21_comp > input$K1_comp) ~ "Stable equilibrium: coexistence"),
+      ) +
+      labs(x="N (species1)",
+           y="N (species2)") +
+      theme_bw() +
+      theme(axis.title=element_text(size=14),
+            axis.text=element_text(size=12),
+            legend.position="bottom",
+            legend.title=element_text(size=14),
+            legend.text=element_text(size=12))
+  })
+  
+  #Plot
+  output$comp_iso_plot<-renderPlot({
+    c_plot2() +
+      geom_path(data=comp_data(),aes(N1,N2),arrow=arrow(length=unit(0.4,"cm"),type="closed",ends="last"),color="darkgreen") 
+  })
+  
+  
+  #Animation
+  output$comp_iso_anim<-renderImage({
+    waiter::Waiter$new(id="comp_iso_anim",color="gray")$show()
+    outfile2<-tempfile(fileext=".gif")
     
-    anim_save("outfile2.gif",animate(c_plot2,renderer = gifski_renderer(loop=FALSE)))
+  anim2<-c_plot2() +
+          geom_point(data=comp_data(),aes(N1,N2),color="darkgreen") +
+          transition_time(comp_data()$t) +
+          shadow_mark(past=TRUE,future=FALSE,alpha=0.3) 
+    
+    anim_save("outfile2.gif",animate(anim2,nframes=50,renderer = gifski_renderer(loop=FALSE)))
     
     list(src = "outfile2.gif",
          contentType = 'image/gif'
          # width = 400,
          # height = 300,
          # alt = "This is alternate text"
-    )}, deleteFile = TRUE)
+    )
+  }, deleteFile = TRUE)
 
 
   ### PAGE 3: Predator-prey Model
@@ -589,10 +669,10 @@ server<-function(input,output,session){
   # Build pops vs. time plot
   output$pred_time_plot <- renderPlot({
     ggplot(data=user_predDF()) +
-      geom_line(aes(x=time,y=x,color="Prey",linetype="Prey")) +
-      geom_line(aes(x=time,y=y,color="Predator",linetype="Predator")) +
-      scale_color_manual(name="",values=c("Prey"="blue","Predator"="red")) +
-      scale_linetype_manual(name="",values=c("Prey"=1,"Predator"=2)) +
+      geom_line(aes(x=time,y=x,color="prey",linetype="prey")) +
+      geom_line(aes(x=time,y=y,color="predator",linetype="predator")) +
+      scale_color_manual(name="",values=c("prey"="blue","predator"="red")) +
+      scale_linetype_manual(name="",values=c("prey"=1,"predator"=2)) +
       theme_bw() +
       theme(axis.title=element_text(size=13),
             axis.text=element_text(size=11),
@@ -636,40 +716,26 @@ shinyApp(ui,server)
 
 #DONE
 ## Pop Growth
-
+# updated pop growth r code to improve DFs behind exp/log growth mini-app
+# remove trailing zeros of N and dN/dt for pop growth tab
+# dynamic UI so that K boxes inputs appear/disappear on button
 
 ## Competition
-# add background information
-# add image of scenarios to background information
-
+# warning message that animation takes long time to load
+# user feedback while loading animated plot (e.g. progress bar)
+# option to have animated/static plot(s)
 
 ## Predation
-# add background information
+
 
 ## All apps
-# check that parameter ranges are accurate
+
 
 
 #FUTURE CHANGES
 #Population growth
-#1) dynamic UI so that K boxes and perhaps pop2 inputs and graphs change on buttons
-#2) remove trailing zeros of N and dN/dt for pop growth tab
+#2) dynamic UI so that pop2 inputs & graphs change on buttons
 
-
-#Competition
-#3) option to have animated/static plot(s)
-#4) improve loading time of animated plots
-#4b) warning message that animation takes long time to load
-#5) user feedback while loading animated plot
-
-
-
-#Predation
-
-
-#Both/all three
-#1) user feedback around super high values--perhaps throws an error/warning message
-#2) add some style/formatting to information panel
-#3) hover over ui to get more information
-#4) space out tabs to navbar
+#Other 
+#1) put developer info as last large tab
 
