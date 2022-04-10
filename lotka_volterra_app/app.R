@@ -16,7 +16,14 @@ ui<-navbarPage(position="fixed-bottom",
   useShinyjs(),
   theme=bslib::bs_theme(bootswatch="flatly"),
   tabPanel("Population Growth",
-    titlePanel("Exponential and Logistic Population Growth Models"),
+    fluidRow(
+      column(11,
+        h2("Population Growth Models")
+      ),
+      column(1,style = "margin-top: 35px;",
+        actionButton("button_author1",label=NULL,icon=icon("info"),class="btn btn-primary"),
+      )
+    ),
     fluidRow(
       column(3,
         wellPanel(
@@ -85,7 +92,14 @@ ui<-navbarPage(position="fixed-bottom",
     )
   ),
   tabPanel("Competition",
-    titlePanel("Lotka-Volterra Competition Model"),
+    fluidRow(
+      column(11,
+        h2("Lotka-Volterra Competition")
+      ),
+      column(1,style = "margin-top: 35px;",
+        actionButton("button_author2",label=NULL,icon=icon("info"),class="btn btn-primary"),
+      )
+    ),
     tabsetPanel(id="comp_tabs",
       tabPanel("Simulation",         
         fluidRow(style="height:600px",
@@ -173,7 +187,14 @@ ui<-navbarPage(position="fixed-bottom",
     )
   ),
   tabPanel("Predation",
-    titlePanel("Lotka-Volterra Predator-Prey Model"),
+    fluidRow(
+      column(11,
+        h2("Lotka-Volterra Predator-Prey")
+      ),
+      column(1,style = "margin-top: 35px;",
+        actionButton("button_author3",label=NULL,icon=icon("info"),class="btn btn-primary"),
+      )
+    ),
     sidebarLayout(
       mainPanel(width=9,
         tabsetPanel(
@@ -215,16 +236,7 @@ ui<-navbarPage(position="fixed-bottom",
         actionButton("pred_button","Show/hide plots")
       )
     )
-  ),
-  tabPanel("Author",
-    p(h4(strong("Keith Post"))),
-    p("If you would like to see the code for this Shiny app, please visit my",
-   tags$a(href="https://github.com/kpost34/lotka_volterra_shiny_app",
-          "Github repo.")
-    ),
-    p(tags$a(href="https://github.com/kpost34","GitHub Profile")),
-    p(tags$a(href="https://www.linkedin.com/in/keith-post","LinkedIn"))            
-      )
+  )
 )
 
   
@@ -366,7 +378,24 @@ user_predDF_builder<-function(xo,yo,alpha,beta,delta,gamma,t,func){
 }
 
 
-## Create modal-----------------------------------------------------------------------------------------
+## Create modals-----------------------------------------------------------------------------------------
+# Author modal
+modal_author<-modalDialog(
+  p(h4(strong("Keith Post"))),
+  p("If you would like to see the code for this Shiny app, please visit my",
+    tags$a(href="https://github.com/kpost34/lotka_volterra_shiny_app",
+           "Github repo"),
+    "for this project."
+  ),
+  p(tags$a(href="https://github.com/kpost34","GitHub Profile")),
+  p(tags$a(href="https://www.linkedin.com/in/keith-post","LinkedIn")),            
+  footer=actionButton("ok_author","Ok",class="btn btn-primary"),
+  size="s",
+  easyClose=TRUE,
+  fade=FALSE
+)
+
+# Warning dialog box modal
 modal_confirm<-modalDialog(
   "Are you sure you want to continue?",
   title="Warning: Animation takes roughly a minute to load",
@@ -377,9 +406,29 @@ modal_confirm<-modalDialog(
 )
 
 
+
+
 ### Create server function------------------------------------------------------------------------------
 server<-function(input,output,session){
 
+  ## Author information
+  #author modal
+  observeEvent(input$button_author1,{
+    showModal(modal_author)
+  })
+  
+  observeEvent(input$button_author2,{
+    showModal(modal_author)
+  })
+  
+  observeEvent(input$button_author3,{
+    showModal(modal_author)
+  })
+  
+  observeEvent(input$ok_author, {
+    removeModal()
+  })
+  
   ## PAGE 1: Population Growth Models
   #Produce reactive functions of data for pop1
   #generate exponential pop growth data
@@ -424,7 +473,6 @@ server<-function(input,output,session){
   
   #pop2 reactive functions
   exp_data2<-reactive({
-    #req(input$pop2_display)
     exp_pop_growth(No=req(input$n2),r=req(input$r2),t=req(input$t2),num=2)
   })
   
@@ -468,9 +516,7 @@ server<-function(input,output,session){
   #print exponential plot click output on hits only
   output$coord_exp<-renderTable({
     req(input$plot_click_exp)
-    coord_exp_dat<-nearPoints(if(input$pop2_display) {pop_c(exp_data1(),exp_data2())} 
-                    else {exp_data1() %>% add_column(pop="pop1")},
-                    input$plot_click_exp,threshold=8) %>%
+    coord_exp_dat<-nearPoints(bind_rows(exp_data1(),exp_data2()),input$plot_click_exp,threshold=8) %>%
       mutate(across(N:dNdt,~formatC(.x,format="g",digits=4)))
     if(nrow(coord_exp_dat)==0) 
       return()
@@ -530,7 +576,7 @@ server<-function(input,output,session){
   #print logistic plot click output on hits only
   output$coord_log<-renderTable({
     req(input$plot_click_log)
-    coord_log_dat<-nearPoints(pop_c(log_data1(),log_data2()),input$plot_click_log,threshold=8) %>%
+    coord_log_dat<-nearPoints(bind_rows(log_data1(),log_data2()),input$plot_click_log,threshold=8) %>%
       mutate(across(N:dNdt,~formatC(.x,format="g",digits=4)))
     if(nrow(coord_log_dat)==0) 
       return()
@@ -761,16 +807,13 @@ server<-function(input,output,session){
       scale_color_manual(name=NULL,values=c("orbits"="gray60","user"="darkgreen")) +
       labs(x="prey population size (x)",
            y="predator population size (y)")
-    },res=96) 
+    },res=96)
 } 
 shinyApp(ui,server)
 
 #DONE
 ## Pop Growth
-# dynamic ui - inputs are done
-# can successfully plot one/two exponential plots
-# can succesfully plot one/two logistic plots
-# deleted pop_c()
+# mouse click tables updated to reflect dynamism in UI
 
 ## Competition
 
@@ -779,17 +822,11 @@ shinyApp(ui,server)
 
 
 ## All apps/other
-# moved author info to separate large tab
-# updated R code to reflect changes to exp_growth and log_growth functions
+# author info now a button on top line of each page; displays info with hyperlinks
 
 
 #FUTURE CHANGES
-#Population growth
-#2) dynamic UI so that pop2 inputs & graphs change on buttons
-#NEED: 1) logistic plot, 2) mouse_click tables
 
 #Other 
-#2) clean up headings
 #3) add some annotation to code
-#5) make author info a pop-out box? and/or in the right corner?
 
