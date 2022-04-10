@@ -31,16 +31,17 @@ popDF$N[3]<-popDF$N[2] + popDF$dNdt[2]
 
 
 #create function
-exp_pop_growth<-function(No,r,t){
+exp_pop_growth<-function(No,r,t,num){
   #create empty tibble
-  popDF<-matrix(NA,nrow=t+1,ncol=3)
-  colnames(popDF)<-c("t","N","dNdt")
+  popDF<-matrix(NA,nrow=t+1,ncol=4)
+  colnames(popDF)<-c("t","N","dNdt","pop")
   popDF<-as_tibble(popDF)
   
   #populate first row and t values
   popDF$t<-0:t
   popDF$N[1]<-No
   popDF$dNdt[1]<-No * r
+  popDF$pop<-paste0("pop",num)
   
   #populate cells in systematic fashion
   for(i in 2:(t+1)){
@@ -51,7 +52,7 @@ exp_pop_growth<-function(No,r,t){
 }
 
 #graph N vs. t
-exp_pop_growth(100,.3,10) %>% ggplot(aes(t,N)) + geom_line()
+exp_pop_growth(100,.3,10,1) %>% ggplot(aes(t,N)) + geom_line()
 
 
 
@@ -79,16 +80,18 @@ for(i in 2:(t+1)){
 }
 
 #create function
-log_pop_growth<-function(No,r,t,K){
+log_pop_growth<-function(No,r,t,K,num){
   #create empty tibble
-  logDF<-matrix(NA,nrow=t+1,ncol=3)
-  colnames(logDF)<-c("t","N","dNdt")
+  logDF<-matrix(NA,nrow=t+1,ncol=4)
+  colnames(logDF)<-c("t","N","dNdt","pop")
   logDF<-as_tibble(logDF)
+  logDF$pop<-paste0("pop",num)
   
   #populate first row and t values
   logDF$t<-0:t
   logDF$N[1]<-No
   logDF$dNdt[1]<-r * ((K - No)/K) * No
+  logDF$pop<-paste0("pop",num)
   
   #populate cells in systematic fashion
   for(i in 2:(t+1)){
@@ -99,7 +102,7 @@ log_pop_growth<-function(No,r,t,K){
 }
 
 #graph N vs. t
-log_pop_growth(50,0.5,10,500) %>% ggplot(aes(t,N)) + geom_line()
+log_pop_growth(50,0.5,10,500,1) %>% ggplot(aes(t,N)) + geom_line()
 
 
 

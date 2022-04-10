@@ -27,10 +27,10 @@ ui<-navbarPage(position="fixed-bottom",
           uiOutput("carry1"),
             br(),
           checkboxInput("pop2_display","Display second population"),
-          h5("Population 2"),
-          numericInput("pop2","N",value=50,min=1,max=1000,width="75%"),
-          numericInput("time2","t",value=20,min=2,max=500,width="75%"),
-          sliderInput("per_cap_gr2","r",value=0,min=-1,max=1,step=0.05,width="75%"),
+          htmlOutput("pop2_title"),
+          uiOutput("pop2"),
+          uiOutput("time2"),
+          uiOutput("intrinsic_rate2"),
           uiOutput("carry2"),
             br(),
             br(),
@@ -71,16 +71,7 @@ ui<-navbarPage(position="fixed-bottom",
               "Lotka-Volterra competition and predation models, respectively. Each page has a set of input boxes and sliders",
               "and accompanying instructions.")
           ),
-          tabPanel("Developer",
-            p(h4(strong("Keith Post"))),
-            p("If you would like to see the code for this Shiny app, please visit my",
-              tags$a(href="https://github.com/kpost34/lotka_volterra_shiny_app",
-                     "Github repo.")
-            ),
-            p(tags$a(href="https://github.com/kpost34","GitHub Profile")),
-            p(tags$a(href="https://www.linkedin.com/in/keith-post","LinkedIn")), 
-          )
-        )
+        ),
       ),
       column(3, align="right",
         fluidRow(style="height:95px"),
@@ -224,7 +215,16 @@ ui<-navbarPage(position="fixed-bottom",
         actionButton("pred_button","Show/hide plots")
       )
     )
-  )
+  ),
+  tabPanel("Author",
+    p(h4(strong("Keith Post"))),
+    p("If you would like to see the code for this Shiny app, please visit my",
+   tags$a(href="https://github.com/kpost34/lotka_volterra_shiny_app",
+          "Github repo.")
+    ),
+    p(tags$a(href="https://github.com/kpost34","GitHub Profile")),
+    p(tags$a(href="https://www.linkedin.com/in/keith-post","LinkedIn"))            
+      )
 )
 
   
@@ -232,16 +232,17 @@ ui<-navbarPage(position="fixed-bottom",
 #### Create functions------------------------------------------------------------------------
 ## Population growth functions
 #exponential population growth function
-exp_pop_growth<-function(No,r,t){
+exp_pop_growth<-function(No,r,t,num){
   #create empty tibble
-  popDF<-matrix(NA,nrow=t+1,ncol=3)
-  colnames(popDF)<-c("t","N","dNdt")
+  popDF<-matrix(NA,nrow=t+1,ncol=4)
+  colnames(popDF)<-c("t","N","dNdt","pop")
   popDF<-as_tibble(popDF)
   
   #populate first row and t values
   popDF$t<-0:t
   popDF$N[1]<-No
   popDF$dNdt[1]<-No * r
+  popDF$pop<-paste0("pop",num)
   
   #populate cells in systematic fashion
   for(i in 2:(t+1)){
@@ -253,16 +254,17 @@ exp_pop_growth<-function(No,r,t){
 
 
 #logistic population growth function
-log_pop_growth<-function(No,r,t,K){
+log_pop_growth<-function(No,r,t,K,num){
   #create empty tibble
-  logDF<-matrix(NA,nrow=t+1,ncol=3)
-  colnames(logDF)<-c("t","N","dNdt")
+  logDF<-matrix(NA,nrow=t+1,ncol=4)
+  colnames(logDF)<-c("t","N","dNdt","pop")
   logDF<-as_tibble(logDF)
   
   #populate first row and t values
   logDF$t<-0:t
   logDF$N[1]<-No
   logDF$dNdt[1]<-r * ((K - No)/K) * No
+  logDF$pop<-paste0("pop",num)
   
   #populate cells in systematic fashion
   for(i in 2:(t+1)){
@@ -271,15 +273,6 @@ log_pop_growth<-function(No,r,t,K){
   }
   logDF
 }
-
-
-#concatenate population function
-pop_c<-function(pop1,pop2){
-  pop1 %>% 
-    bind_rows(pop2) %>%
-    add_column(pop=c(rep("pop1",nrow(pop1)),rep("pop2",nrow(pop2)))) -> pops
-}
-
 
 
 ## Competition model functions
@@ -372,6 +365,7 @@ user_predDF_builder<-function(xo,yo,alpha,beta,delta,gamma,t,func){
     as_tibble() 
 }
 
+
 ## Create modal-----------------------------------------------------------------------------------------
 modal_confirm<-modalDialog(
   "Are you sure you want to continue?",
@@ -382,19 +376,63 @@ modal_confirm<-modalDialog(
   )
 )
 
+
 ### Create server function------------------------------------------------------------------------------
 server<-function(input,output,session){
 
   ## PAGE 1: Population Growth Models
-  #Produce reactive functions of data
+  #Produce reactive functions of data for pop1
   #generate exponential pop growth data
-  exp_data1<-reactive(exp_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1))
-  exp_data2<-reactive(exp_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2))
+  exp_data1<-reactive(exp_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1,num=1))
   
   #generate logistic pop growth data
-  log_data1<-reactive(log_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1,K=req(input$K1)))
-  log_data2<-reactive(log_pop_growth(No=input$pop2,r=input$per_cap_gr2,t=input$time2,K=req(input$K2)))
+  log_data1<-reactive(log_pop_growth(No=input$pop1,r=input$per_cap_gr1,t=input$time1,K=req(input$K1),num=1))
   
+  #Dynamic pop2 title and ui
+  #print pop2 title
+  output$pop2_title<-renderText({
+    if(input$pop2_display){
+      paste("<h5>Population 2</h5>")
+    }
+  })
+  
+  #pop2 UI controls
+  output$pop2<-renderUI({
+    if(input$pop2_display){
+    numericInput("n2","N",value=50,min=1,max=1000,width="75%")
+    }
+  })
+  
+  output$time2<-renderUI({
+    if(input$pop2_display){
+      numericInput("t2","t",value=20,min=2,max=500,width="75%")
+    }
+  })
+  
+  output$intrinsic_rate2<-renderUI({
+    if(input$pop2_display){
+      sliderInput("r2","r",value=0,min=-1,max=1,step=0.05,width="75%")
+    }
+  })
+  
+  output$intrinsic_rate2<-renderUI({
+    if(input$pop2_display)
+      if(input$K1) {
+      sliderInput("r2","r",value=0,min=-1,max=1,step=0.05,width="75%")
+    }
+  })
+  
+  #pop2 reactive functions
+  exp_data2<-reactive({
+    #req(input$pop2_display)
+    exp_pop_growth(No=req(input$n2),r=req(input$r2),t=req(input$t2),num=2)
+  })
+  
+  log_data2<-reactive({
+    log_pop_growth(No=req(input$n2),r=req(input$r2),t=req(input$t2),K=req(input$K2),num=2)
+  })
+  
+
   #Exponential growth plot
   #start with exp plot and title hidden
   hide("exp_title")
@@ -411,7 +449,11 @@ server<-function(input,output,session){
 
   #produce exponential growth plot
   output$exp_growth<-renderPlot({
-    pop_c(exp_data1(),exp_data2()) %>%
+      if(input$pop2_display)
+        {bind_rows(exp_data1(),exp_data2()) -> dat}
+      else{exp_data1()-> dat}
+    
+    dat %>%
       ggplot() +
         geom_line(aes(t,N,color=pop)) +
         scale_color_manual(values=c("darkred","darkblue")) +
@@ -426,7 +468,9 @@ server<-function(input,output,session){
   #print exponential plot click output on hits only
   output$coord_exp<-renderTable({
     req(input$plot_click_exp)
-    coord_exp_dat<-nearPoints(pop_c(exp_data1(),exp_data2()),input$plot_click_exp,threshold=8) %>%
+    coord_exp_dat<-nearPoints(if(input$pop2_display) {pop_c(exp_data1(),exp_data2())} 
+                    else {exp_data1() %>% add_column(pop="pop1")},
+                    input$plot_click_exp,threshold=8) %>%
       mutate(across(N:dNdt,~formatC(.x,format="g",digits=4)))
     if(nrow(coord_exp_dat)==0) 
       return()
@@ -440,7 +484,7 @@ server<-function(input,output,session){
   hide("log_growth")
   hide("carry1")
   hide("carry2")
-  
+
   #toggle print logistic growth title & plot
   observeEvent(input$log_button,{
     toggle("log_title")
@@ -454,26 +498,33 @@ server<-function(input,output,session){
 
   #produce logistic growth plot
   output$log_growth<-renderPlot({
-    pop_c(log_data1(),log_data2()) %>%
-      ggplot() +
-        geom_line(aes(t,N,color=pop)) +
-        scale_color_manual(values=c("darkred","darkblue")) +
-        geom_hline(yintercept=input$K1,linetype=2,color="darkred") +
-        geom_hline(yintercept=input$K2,linetype=2,color="darkblue") +
-        theme_bw() +
-        theme(axis.text=element_text(size=11),
-              legend.position="bottom",
-              legend.title=element_blank(),
-              legend.text=element_text(size=10)) +
-        labs(x="time (t)",y="population size (N)",color="Population")
+    if(input$pop2_display)
+    {bind_rows(log_data1(),log_data2()) -> dat2}
+    else{log_data1() -> dat2}
+    
+  dat2 %>%
+    ggplot() +
+      geom_line(aes(t,N,color=pop)) +
+      scale_color_manual(values=c("darkred","darkblue")) +
+      geom_hline(yintercept=input$K1,linetype=2,color="darkred") +
+      geom_hline(yintercept=input$K2,linetype=2,color="darkblue") +
+      theme_bw() +
+      theme(axis.text=element_text(size=11),
+            legend.position="bottom",
+            legend.title=element_blank(),
+            legend.text=element_text(size=10)) +
+      labs(x="time (t)",y="population size (N)",color="Population")
   },res=96) 
   
   #display K input boxes dynamically
   output$carry1<-renderUI({
     numericInput("K1","K",value=100,min=1,max=1000,width="75%")
   })
+  
   output$carry2<-renderUI({
-    numericInput("K2","K",value=100,min=1,max=1000,width="75%")
+      req(input$pop2_display)
+      req(input$K1)
+      numericInput("K2","K",value=100,min=1,max=1000,width="75%")
   })
   
   #print logistic plot click output on hits only
@@ -487,7 +538,7 @@ server<-function(input,output,session){
   })
   
   #hide click output when in information tab
-  observe(if(input$growth_tabs=="Information"){
+  observe(if(input$growth_tabs=="More Information"){
     hide("coord_exp")
     hide("coord_log")}
     else{
@@ -716,26 +767,29 @@ shinyApp(ui,server)
 
 #DONE
 ## Pop Growth
-# updated pop growth r code to improve DFs behind exp/log growth mini-app
-# remove trailing zeros of N and dN/dt for pop growth tab
-# dynamic UI so that K boxes inputs appear/disappear on button
+# dynamic ui - inputs are done
+# can successfully plot one/two exponential plots
+# can succesfully plot one/two logistic plots
+# deleted pop_c()
 
 ## Competition
-# warning message that animation takes long time to load
-# user feedback while loading animated plot (e.g. progress bar)
-# option to have animated/static plot(s)
+
 
 ## Predation
 
 
-## All apps
-
+## All apps/other
+# moved author info to separate large tab
+# updated R code to reflect changes to exp_growth and log_growth functions
 
 
 #FUTURE CHANGES
 #Population growth
 #2) dynamic UI so that pop2 inputs & graphs change on buttons
+#NEED: 1) logistic plot, 2) mouse_click tables
 
 #Other 
-#1) put developer info as last large tab
+#2) clean up headings
+#3) add some annotation to code
+#5) make author info a pop-out box? and/or in the right corner?
 
