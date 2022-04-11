@@ -598,7 +598,7 @@ server<-function(input,output,session){
   ## Output picture of scenarios
   output$comp_pic<-renderImage({
     list(
-      src=file.path("lotka_volterra_app","lotka_volterra_competition.svg"),
+      src="lotka_volterra_competition.svg",
       width=450,
       height=450)
     },deleteFile=FALSE)
