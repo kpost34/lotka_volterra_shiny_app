@@ -810,23 +810,3 @@ server<-function(input,output,session){
     },res=96)
 } 
 shinyApp(ui,server)
-
-#DONE
-## Pop Growth
-# mouse click tables updated to reflect dynamism in UI
-
-## Competition
-
-
-## Predation
-
-
-## All apps/other
-# author info now a button on top line of each page; displays info with hyperlinks
-
-
-#FUTURE CHANGES
-
-#Other 
-#3) add some annotation to code
-
