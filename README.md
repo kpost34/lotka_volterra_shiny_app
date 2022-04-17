@@ -1,4 +1,4 @@
-# **Lotka_Volterra Shiny App
+# **Lotka_Volterra Shiny App**
 Three mini-apps to demonstrate Lotka-Volterra population ecology dynamics
 
 ## Summary
@@ -19,7 +19,7 @@ on dynamics of biological populations.
   + ggrepel 0.9.1
 
 ## R Product
-+ [Shiny app](https://keithhpost.shinyapps.io/lotka_volterra_shiny_app/
++ [Shiny app](https://keithhpost.shinyapps.io/lotka_volterra_shiny_app/)
 
 #### **Project Creator: Keith Post**
 + [Github Profile](https://github.com/kpost34) 
