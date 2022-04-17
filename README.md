@@ -1,4 +1,4 @@
-# **Lotka_Volterra Shiny App**
+# **Lotka Volterra Shiny App**
 Three mini-apps to demonstrate Lotka-Volterra population ecology dynamics
 
 ## Summary
